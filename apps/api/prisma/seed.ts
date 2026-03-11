@@ -60,6 +60,21 @@ async function main() {
   });
   console.log(`Practitioner created: ${practitioner2.email}`);
 
+  // Create test client
+  const clientPassword = await bcrypt.hash("client123", 12);
+  const client = await prisma.user.upsert({
+    where: { email: "client@clinic.com" },
+    update: {},
+    create: {
+      email: "client@clinic.com",
+      passwordHash: clientPassword,
+      firstName: "Test",
+      lastName: "Client",
+      role: "CLIENT",
+    },
+  });
+  console.log(`Client created: ${client.email}`);
+
   // Seed all Dr Skin Central treatments
   const treatmentData: {
     id: string;
