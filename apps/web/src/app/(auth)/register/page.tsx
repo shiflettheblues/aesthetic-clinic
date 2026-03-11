@@ -35,7 +35,7 @@ export default function RegisterPage() {
     try {
       const res = await api.post("/auth/register", data);
       setAuth(res.data.user, res.data.accessToken, res.data.refreshToken);
-      router.push("/dashboard");
+      router.push("/my-dashboard");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
       setError(msg || "Registration failed");
@@ -43,7 +43,13 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--muted)]">
+    <div className="flex min-h-screen flex-col bg-[var(--muted)]">
+      <header className="bg-white border-b border-[var(--border)]">
+        <div className="max-w-6xl mx-auto px-4 flex items-center h-14">
+          <Link href="/" className="text-lg font-bold text-[var(--primary)]">Dr Skin Central</Link>
+        </div>
+      </header>
+      <div className="flex flex-1 items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm border border-[var(--border)]">
         <h1 className="mb-1 text-2xl font-bold text-center">Create account</h1>
         <p className="mb-6 text-sm text-[var(--muted-foreground)] text-center">Register as a new client</p>
@@ -71,6 +77,7 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
+      </div>
       </div>
     </div>
   );
