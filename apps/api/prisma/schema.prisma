@@ -1,0 +1,485 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  PRACTITIONER
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  CAPTURED
+  REFUNDED
+  FAILED
+}
+
+enum PaymentType {
+  DEPOSIT
+  BALANCE
+  PACKAGE
+  GIFT_CARD
+}
+
+enum FormType {
+  MEDICAL_QUESTIONNAIRE
+  CONSENT
+  PHOTO_CONSENT
+  AFTERCARE
+}
+
+enum PaymentMethod {
+  STRIPE
+  KLARNA
+  CLEARPAY
+  CASH
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?
+  passwordHash  String   @map("password_hash")
+  role          Role     @default(CLIENT)
+  firstName     String   @map("first_name")
+  lastName      String   @map("last_name")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Client-specific fields
+  dateOfBirth           DateTime? @map("date_of_birth")
+  emergencyContactName  String?   @map("emergency_contact_name")
+  emergencyContactPhone String?   @map("emergency_contact_phone")
+  intakeFormCompleted   Boolean   @default(false) @map("intake_form_completed")
+  intakeFormSignedAt    DateTime? @map("intake_form_signed_at")
+
+  // Practitioner-specific fields
+  bio         String?
+  specialties String[]
+  avatarUrl   String?  @map("avatar_url")
+
+  // Working hours (practitioner)
+  workingHoursStart String? @map("working_hours_start") // e.g. "09:00"
+  workingHoursEnd   String? @map("working_hours_end")   // e.g. "18:00"
+  workingDays       Int[]   @map("working_days")         // 0=Sun, 1=Mon, ..., 6=Sat
+
+  // Relations
+  clientAppointments       Appointment[]  @relation("ClientAppointments")
+  practitionerAppointments Appointment[]  @relation("PractitionerAppointments")
+  intakeForms              IntakeForm[]
+  payments                 Payment[]
+  packages                 Package[]
+  purchasedGiftCards       GiftCard[]     @relation("PurchasedGiftCards")
+  redeemedGiftCards        GiftCard[]     @relation("RedeemedGiftCards")
+  sentMessages             Message[]      @relation("SentMessages")
+  receivedMessages         Message[]      @relation("ReceivedMessages")
+  notifications            Notification[]
+  blockedSlots             BlockedSlot[]
+  reviews                  Review[]       @relation("ClientReviews")
+  practitionerReviews      Review[]       @relation("PractitionerReviews")
+  formSubmissions          FormSubmission[]
+  membershipSubscriptions  MembershipSubscription[]
+  loyaltyPoints            LoyaltyPoints[]
+  referralsMade            Referral[] @relation("Referrer")
+  referralsReceived        Referral[] @relation("Referred")
+
+  @@map("users")
+}
+
+model Treatment {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  durationMinutes Int      @map("duration_minutes")
+  priceCents      Int      @map("price_cents")
+  category        String?
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  appointments      Appointment[]
+  packages          Package[]
+  formTemplates     FormTemplate[]
+  treatmentProducts TreatmentProduct[]
+
+  @@map("treatments")
+}
+
+model Appointment {
+  id               String            @id @default(cuid())
+  clientId         String            @map("client_id")
+  practitionerId   String            @map("practitioner_id")
+  treatmentId      String            @map("treatment_id")
+  startsAt         DateTime          @map("starts_at")
+  endsAt           DateTime          @map("ends_at")
+  status           AppointmentStatus @default(PENDING)
+  notes            String?
+  depositPaid      Boolean           @default(false) @map("deposit_paid")
+  depositAmountCents Int?            @map("deposit_amount_cents")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  client       User      @relation("ClientAppointments", fields: [clientId], references: [id])
+  practitioner User      @relation("PractitionerAppointments", fields: [practitionerId], references: [id])
+  treatment    Treatment @relation(fields: [treatmentId], references: [id])
+  payments        Payment[]
+  messages        Message[]
+  review          Review?
+  formSubmissions FormSubmission[]
+
+  @@map("appointments")
+}
+
+model IntakeForm {
+  id                 String   @id @default(cuid())
+  clientId           String   @map("client_id")
+  allergies          String?
+  medications        String?
+  skinConditions     String?  @map("skin_conditions")
+  pregnant           Boolean  @default(false)
+  breastfeeding      Boolean  @default(false)
+  previousTreatments String?  @map("previous_treatments")
+  skincareRoutine    String?  @map("skincare_routine")
+  concerns           String?
+  consentTreatment   Boolean  @default(false) @map("consent_treatment")
+  consentSignedAt    DateTime? @map("consent_signed_at")
+  photoConsent       Boolean  @default(false) @map("photo_consent")
+  marketingOptIn     Boolean  @default(false) @map("marketing_opt_in")
+  pdfUrl             String?  @map("pdf_url")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  client User @relation(fields: [clientId], references: [id])
+
+  @@map("intake_forms")
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  appointmentId         String?       @map("appointment_id")
+  clientId              String        @map("client_id")
+  amountCents           Int           @map("amount_cents")
+  status                PaymentStatus @default(PENDING)
+  stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  stripeChargeId        String?       @map("stripe_charge_id")
+  type                  PaymentType
+  paymentMethod         PaymentMethod @default(STRIPE) @map("payment_method")
+  createdAt             DateTime      @default(now()) @map("created_at")
+
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  client      User         @relation(fields: [clientId], references: [id])
+
+  @@map("payments")
+}
+
+model Package {
+  id                String    @id @default(cuid())
+  name              String
+  treatmentId       String    @map("treatment_id")
+  sessionsTotal     Int       @map("sessions_total")
+  sessionsRemaining Int       @map("sessions_remaining")
+  clientId          String    @map("client_id")
+  priceCents        Int       @map("price_cents")
+  expiresAt         DateTime? @map("expires_at")
+  purchasedAt       DateTime  @default(now()) @map("purchased_at")
+
+  treatment Treatment @relation(fields: [treatmentId], references: [id])
+  client    User      @relation(fields: [clientId], references: [id])
+
+  @@map("packages")
+}
+
+model GiftCard {
+  id                   String    @id @default(cuid())
+  code                 String    @unique
+  balanceCents         Int       @map("balance_cents")
+  originalBalanceCents Int       @map("original_balance_cents")
+  purchasedByClientId  String?   @map("purchased_by_client_id")
+  redeemedByClientId   String?   @map("redeemed_by_client_id")
+  expiresAt            DateTime? @map("expires_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  purchasedBy User? @relation("PurchasedGiftCards", fields: [purchasedByClientId], references: [id])
+  redeemedBy  User? @relation("RedeemedGiftCards", fields: [redeemedByClientId], references: [id])
+
+  @@map("gift_cards")
+}
+
+model Message {
+  id            String    @id @default(cuid())
+  senderId      String    @map("sender_id")
+  recipientId   String    @map("recipient_id")
+  appointmentId String?   @map("appointment_id")
+  content       String
+  readAt        DateTime? @map("read_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  sender      User         @relation("SentMessages", fields: [senderId], references: [id])
+  recipient   User         @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("messages")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  type      String
+  title     String
+  body      String
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model BlockedSlot {
+  id             String   @id @default(cuid())
+  practitionerId String   @map("practitioner_id")
+  startsAt       DateTime @map("starts_at")
+  endsAt         DateTime @map("ends_at")
+  reason         String?
+
+  practitioner User @relation(fields: [practitionerId], references: [id])
+
+  @@map("blocked_slots")
+}
+
+model Review {
+  id             String   @id @default(cuid())
+  clientId       String   @map("client_id")
+  practitionerId String   @map("practitioner_id")
+  appointmentId  String   @unique @map("appointment_id")
+  rating         Int
+  comment        String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  client       User        @relation("ClientReviews", fields: [clientId], references: [id])
+  practitioner User        @relation("PractitionerReviews", fields: [practitionerId], references: [id])
+  appointment  Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@map("reviews")
+}
+
+model FormTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  formType    FormType @map("form_type")
+  treatmentId String?  @map("treatment_id")
+  fields      Json     // JSON schema: [{ key, label, type, required, options?, conditionalOn? }]
+  isActive    Boolean  @default(true) @map("is_active")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  treatment   Treatment?       @relation(fields: [treatmentId], references: [id])
+  submissions FormSubmission[]
+
+  @@map("form_templates")
+}
+
+model FormSubmission {
+  id            String    @id @default(cuid())
+  templateId    String    @map("template_id")
+  clientId      String    @map("client_id")
+  appointmentId String?   @map("appointment_id")
+  responses     Json      // { [fieldKey]: value }
+  signatureUrl  String?   @map("signature_url")
+  signedAt      DateTime? @map("signed_at")
+  pdfUrl        String?   @map("pdf_url")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  template    FormTemplate @relation(fields: [templateId], references: [id])
+  client      User         @relation(fields: [clientId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("form_submissions")
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String
+  sku               String?  @unique
+  category          String?
+  costCents         Int      @map("cost_cents")
+  salePriceCents    Int?     @map("sale_price_cents")
+  stockQuantity     Int      @default(0) @map("stock_quantity")
+  lowStockThreshold Int      @default(5) @map("low_stock_threshold")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  treatmentProducts TreatmentProduct[]
+  stockMovements    StockMovement[]
+
+  @@map("products")
+}
+
+model TreatmentProduct {
+  id           String @id @default(cuid())
+  treatmentId  String @map("treatment_id")
+  productId    String @map("product_id")
+  quantityUsed Float  @default(1) @map("quantity_used")
+
+  treatment Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([treatmentId, productId])
+  @@map("treatment_products")
+}
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  quantity  Int      // positive = stock in, negative = stock out
+  reason    String   // e.g. "purchase", "treatment_use", "adjustment", "expired"
+  reference String?  // e.g. appointment ID
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("stock_movements")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// --- Phase 5: Marketing, Loyalty, Memberships ---
+
+model Membership {
+  id               String   @id @default(cuid())
+  name             String
+  monthlyPriceCents Int     @map("monthly_price_cents")
+  benefits         Json     // e.g. { discountPercent: 10, freeConsultation: true }
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  subscriptions MembershipSubscription[]
+
+  @@map("memberships")
+}
+
+model MembershipSubscription {
+  id                   String   @id @default(cuid())
+  clientId             String   @map("client_id")
+  membershipId         String   @map("membership_id")
+  status               String   @default("active") // active, cancelled, past_due
+  stripeSubscriptionId String?  @map("stripe_subscription_id")
+  currentPeriodEnd     DateTime? @map("current_period_end")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  client     User       @relation(fields: [clientId], references: [id])
+  membership Membership @relation(fields: [membershipId], references: [id])
+
+  @@map("membership_subscriptions")
+}
+
+model LoyaltyPoints {
+  id        String   @id @default(cuid())
+  clientId  String   @map("client_id")
+  points    Int      // positive = earned, negative = redeemed
+  reason    String   // e.g. "booking", "referral", "review", "redemption"
+  reference String?  // e.g. appointment ID, referral ID
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client User @relation(fields: [clientId], references: [id])
+
+  @@map("loyalty_points")
+}
+
+model PromoCode {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  discountType  String    // "percentage" or "fixed"
+  discountValue Int       // percentage (0-100) or cents
+  maxUses       Int?      @map("max_uses")
+  currentUses   Int       @default(0) @map("current_uses")
+  validFrom     DateTime? @map("valid_from")
+  validUntil    DateTime? @map("valid_until")
+  treatmentId   String?   @map("treatment_id")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("promo_codes")
+}
+
+model Referral {
+  id           String   @id @default(cuid())
+  referrerId   String   @map("referrer_id")
+  referredId   String?  @map("referred_id")
+  referralCode String   @unique @map("referral_code")
+  status       String   @default("pending") // pending, completed, rewarded
+  rewardPoints Int      @default(0) @map("reward_points")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  referrer User  @relation("Referrer", fields: [referrerId], references: [id])
+  referred User? @relation("Referred", fields: [referredId], references: [id])
+
+  @@map("referrals")
+}
+
+model SmsCampaign {
+  id             String   @id @default(cuid())
+  name           String
+  message        String
+  targetFilter   Json?    @map("target_filter") // e.g. { treatmentId: "x", lastVisitBefore: "date" }
+  recipientCount Int      @default(0) @map("recipient_count")
+  sentCount      Int      @default(0) @map("sent_count")
+  status         String   @default("draft") // draft, sending, sent
+  scheduledAt    DateTime? @map("scheduled_at")
+  sentAt         DateTime? @map("sent_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("sms_campaigns")
+}
+
+model SmsCredit {
+  id        String   @id @default(cuid())
+  quantity  Int      // positive = purchased, negative = used
+  reason    String
+  reference String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sms_credits")
+}
+
+// --- Phase 6: Integrations ---
+
+model IntegrationConfig {
+  id            String   @id @default(cuid())
+  provider      String   @unique // mailchimp, klarna, clearpay, xero, google_reviews
+  isEnabled     Boolean  @default(false) @map("is_enabled")
+  credentials   Json?    // encrypted credentials
+  settings      Json?    // provider-specific settings
+  lastSyncAt    DateTime? @map("last_sync_at")
+  syncStatus    String?  @map("sync_status") // idle, syncing, error
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("integration_configs")
+}
