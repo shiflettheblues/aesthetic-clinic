@@ -12,6 +12,8 @@ const tabs = [
   { href: "/settings/practitioners", label: "Practitioners" },
   { href: "/settings/booking", label: "Booking" },
   { href: "/settings/forms", label: "Forms" },
+  { href: "/settings/packages", label: "Packages" },
+  { href: "/settings/notifications", label: "Notifications" },
   { href: "/settings/integrations", label: "Integrations" },
 ];
 

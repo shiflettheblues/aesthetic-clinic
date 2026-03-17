@@ -48,7 +48,7 @@ export default function DashboardPage() {
       <div className="p-6 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link href="/calendar" className="cursor-pointer hover:shadow-md transition-shadow rounded-xl">
+          <Link href="/calendar" className="block hover:shadow-md transition-shadow rounded-xl">
             <Card>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
@@ -62,7 +62,7 @@ export default function DashboardPage() {
             </Card>
           </Link>
 
-          <Link href="/reports" className="cursor-pointer hover:shadow-md transition-shadow rounded-xl">
+          <Link href="/reports" className="block hover:shadow-md transition-shadow rounded-xl">
             <Card>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
@@ -76,7 +76,7 @@ export default function DashboardPage() {
             </Card>
           </Link>
 
-          <Link href="/patients" className="cursor-pointer hover:shadow-md transition-shadow rounded-xl">
+          <Link href="/patients" className="block hover:shadow-md transition-shadow rounded-xl">
             <Card>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
@@ -90,7 +90,7 @@ export default function DashboardPage() {
             </Card>
           </Link>
 
-          <Link href="/reports" className="cursor-pointer hover:shadow-md transition-shadow rounded-xl">
+          <Link href="/reports" className="block hover:shadow-md transition-shadow rounded-xl">
             <Card>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100">
@@ -115,7 +115,11 @@ export default function DashboardPage() {
               <p className="text-sm text-[var(--muted-foreground)]">No appointments today</p>
             ) : (
               appointments.map((apt) => (
-                <div key={apt.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] p-3">
+                <Link
+                  key={apt.id}
+                  href={`/patients/${apt.client.id}`}
+                  className="flex items-center justify-between rounded-lg border border-[var(--border)] p-3 hover:bg-[var(--muted)] transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     <div>
                       <p className="font-medium text-sm">
@@ -132,7 +136,7 @@ export default function DashboardPage() {
                     </span>
                     <Badge variant={statusVariant[apt.status]}>{apt.status}</Badge>
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>

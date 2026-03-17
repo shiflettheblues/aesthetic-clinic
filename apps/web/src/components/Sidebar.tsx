@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Users, Settings, LogOut, BarChart3, Megaphone } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, Settings, LogOut, BarChart3, Megaphone, UserCheck } from "lucide-react";
 import clsx from "clsx";
 import { useAuthStore } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/patients", label: "Patients", icon: Users },
+  { href: "/staff", label: "Staff", icon: UserCheck },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/marketing", label: "Marketing", icon: Megaphone },
   { href: "/settings", label: "Settings", icon: Settings },

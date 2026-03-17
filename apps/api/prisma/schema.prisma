@@ -96,6 +96,7 @@ model User {
   loyaltyPoints            LoyaltyPoints[]
   referralsMade            Referral[] @relation("Referrer")
   referralsReceived        Referral[] @relation("Referred")
+  staffTargets             StaffTarget[]
 
   @@map("users")
 }
@@ -190,6 +191,7 @@ model Package {
   id                String    @id @default(cuid())
   name              String
   treatmentId       String    @map("treatment_id")
+  templateId        String?   @map("template_id")
   sessionsTotal     Int       @map("sessions_total")
   sessionsRemaining Int       @map("sessions_remaining")
   clientId          String    @map("client_id")
@@ -197,8 +199,9 @@ model Package {
   expiresAt         DateTime? @map("expires_at")
   purchasedAt       DateTime  @default(now()) @map("purchased_at")
 
-  treatment Treatment @relation(fields: [treatmentId], references: [id])
-  client    User      @relation(fields: [clientId], references: [id])
+  treatment Treatment        @relation(fields: [treatmentId], references: [id])
+  client    User             @relation(fields: [clientId], references: [id])
+  template  PackageTemplate? @relation(fields: [templateId], references: [id])
 
   @@map("packages")
 }
@@ -466,6 +469,82 @@ model SmsCredit {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("sms_credits")
+}
+
+// --- Phase 7: Notification Templates ---
+
+enum NotifTemplateType {
+  BOOKING_CONFIRMED
+  BOOKING_REMINDER_24H
+  BOOKING_CANCELLED
+  REBOOK_REMINDER
+  BIRTHDAY
+  OVERDUE_TREATMENT
+  PAYMENT_RECEIVED
+  FOLLOW_UP
+}
+
+enum NotifChannel {
+  SMS
+  EMAIL
+}
+
+model NotificationTemplate {
+  id        String            @id @default(cuid())
+  type      NotifTemplateType
+  channel   NotifChannel
+  subject   String?
+  body      String
+  isActive  Boolean           @default(true) @map("is_active")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  @@unique([type, channel])
+  @@map("notification_templates")
+}
+
+// --- Phase 8: Package Templates ---
+
+model PackageTemplate {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  treatmentIds String[]  @map("treatment_ids")
+  sessions     Int
+  validDays    Int       @default(365) @map("valid_days")
+  priceCents   Int       @map("price_cents")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  packages     Package[]
+
+  @@map("package_templates")
+}
+
+// --- Phase 9: Staff Targets ---
+
+enum TargetType {
+  REVENUE
+  APPOINTMENTS
+}
+
+enum TargetPeriod {
+  WEEKLY
+  MONTHLY
+}
+
+model StaffTarget {
+  id               String       @id @default(cuid())
+  practitionerId   String       @map("practitioner_id")
+  type             TargetType
+  amountCents      Int?         @map("amount_cents")
+  appointmentCount Int?         @map("appointment_count")
+  period           TargetPeriod
+  startsAt         DateTime     @map("starts_at")
+  endsAt           DateTime     @map("ends_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  practitioner User @relation(fields: [practitionerId], references: [id])
+
+  @@map("staff_targets")
 }
 
 // --- Phase 6: Integrations ---

@@ -1,6 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { useAuthStore } from "@/lib/auth";
 
 export default function Home() {
+  const { accessToken } = useAuthStore();
+  const isLoggedIn = !!accessToken;
+
   return (
     <div className="min-h-screen bg-[var(--muted)]">
       {/* Header */}
@@ -8,17 +14,19 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
           <h1 className="text-xl font-bold text-[var(--primary)]">Dr Skin Central</h1>
           <div className="flex items-center gap-3">
+            {!isLoggedIn && (
+              <Link
+                href="/login"
+                className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              >
+                Log In
+              </Link>
+            )}
             <Link
-              href="/login"
-              className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
+              href="/book"
               className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
             >
-              Register
+              Book Appointment
             </Link>
           </div>
         </div>
@@ -42,12 +50,14 @@ export default function Home() {
           >
             Book Appointment
           </Link>
-          <Link
-            href="/login"
-            className="rounded-lg border border-[var(--border)] bg-white px-6 py-3 text-sm font-medium hover:bg-[var(--muted)] transition-colors"
-          >
-            My Account
-          </Link>
+          {!isLoggedIn && (
+            <Link
+              href="/login"
+              className="rounded-lg border border-[var(--border)] bg-white px-6 py-3 text-sm font-medium hover:bg-[var(--muted)] transition-colors"
+            >
+              Log In
+            </Link>
+          )}
         </div>
       </section>
 
@@ -107,7 +117,6 @@ export default function Home() {
             Dr Skin Central &middot; 5 The Walk, Ipswich IP1 1EA &middot; 01473 948271
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <Link href="/login" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">Client Login</Link>
             <Link href="/login" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">Staff Login</Link>
           </div>
         </div>

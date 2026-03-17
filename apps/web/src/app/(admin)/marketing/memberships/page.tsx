@@ -151,7 +151,9 @@ function TierModal({
 }: { open: boolean; onClose: () => void; tier: Membership | null; onSaved: () => void }) {
   const [name, setName] = useState(tier?.name ?? "");
   const [price, setPrice] = useState(tier ? String(tier.monthlyPriceCents / 100) : "");
-  const [benefits, setBenefits] = useState(tier ? JSON.stringify(tier.benefits, null, 2) : '{\n  "discount": 10,\n  "priorityBooking": true\n}');
+  const parsedBenefits = tier?.benefits as Record<string, unknown> | undefined;
+  const [discount, setDiscount] = useState(String(parsedBenefits?.discount ?? "10"));
+  const [priorityBooking, setPriorityBooking] = useState((parsedBenefits?.priorityBooking as boolean) ?? true);
   const [isActive, setIsActive] = useState(tier?.isActive ?? true);
   const [error, setError] = useState("");
 
@@ -160,7 +162,7 @@ function TierModal({
       const data = {
         name,
         monthlyPriceCents: Math.round(Number(price) * 100),
-        benefits: JSON.parse(benefits),
+        benefits: { discount: Number(discount), priorityBooking },
         isActive,
       };
       if (tier) {
@@ -181,15 +183,11 @@ function TierModal({
       <div className="space-y-4">
         <Input label="Name" value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder="Gold" />
         <Input label="Monthly Price (£)" type="number" value={price} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrice(e.target.value)} placeholder="49.99" />
-        <div>
-          <label className="block text-sm font-medium mb-1">Benefits (JSON)</label>
-          <textarea
-            className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono resize-none"
-            rows={4}
-            value={benefits}
-            onChange={(e) => setBenefits(e.target.value)}
-          />
-        </div>
+        <Input label="Discount (%)" type="number" value={discount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDiscount(e.target.value)} placeholder="10" />
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={priorityBooking} onChange={(e) => setPriorityBooking(e.target.checked)} />
+          Priority Booking
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           Active

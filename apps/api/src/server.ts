@@ -20,6 +20,10 @@ import { promoCodeRoutes } from "./routes/promo-codes.js";
 import { referralRoutes } from "./routes/referrals.js";
 import { smsCampaignRoutes } from "./routes/sms-campaigns.js";
 import { integrationRoutes } from "./routes/integrations.js";
+import { giftCardRoutes } from "./routes/gift-cards.js";
+import { notificationTemplateRoutes } from "./routes/notification-templates.js";
+import { packageRoutes } from "./routes/packages.js";
+import { staffRoutes } from "./routes/staff.js";
 
 const app = Fastify({ logger: true });
 
@@ -57,6 +61,10 @@ await app.register(promoCodeRoutes);
 await app.register(referralRoutes);
 await app.register(smsCampaignRoutes);
 await app.register(integrationRoutes);
+await app.register(giftCardRoutes);
+await app.register(notificationTemplateRoutes);
+await app.register(packageRoutes);
+await app.register(staffRoutes);
 
 // Start
 const port = Number(process.env.PORT) || 3001;

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addDays, startOfWeek, parseISO, isSameDay } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/Button";
@@ -570,7 +571,15 @@ function EditAppointmentModal({
 
       <div className="space-y-4">
         <div className="rounded-lg bg-[var(--muted)] p-3 space-y-1">
-          <p className="text-sm font-medium">{appointment.client.firstName} {appointment.client.lastName}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">{appointment.client.firstName} {appointment.client.lastName}</p>
+            <Link
+              href={`/patients/${appointment.client.id}`}
+              className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+            >
+              View Profile <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
           <p className="text-xs text-[var(--muted-foreground)]">{appointment.treatment.name}</p>
           <p className="text-xs text-[var(--muted-foreground)]">with {appointment.practitioner.firstName} {appointment.practitioner.lastName}</p>
         </div>

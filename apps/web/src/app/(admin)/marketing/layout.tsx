@@ -12,6 +12,7 @@ const tabs = [
   { href: "/marketing/referrals", label: "Referrals" },
   { href: "/marketing/memberships", label: "Memberships" },
   { href: "/marketing/promo-codes", label: "Promo Codes" },
+  { href: "/marketing/gift-vouchers", label: "Gift Vouchers" },
   { href: "/marketing/google-reviews", label: "Google Reviews" },
 ];
 
