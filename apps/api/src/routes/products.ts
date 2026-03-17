@@ -204,4 +204,50 @@ export async function productRoutes(app: FastifyInstance) {
     await prisma.treatmentProduct.delete({ where: { id } });
     return reply.send({ message: "Link removed" });
   });
+
+  // Low stock list
+  app.get("/products/low-stock", { preHandler: requireRole("ADMIN", "PRACTITIONER") }, async (request, reply) => {
+    const products = await prisma.product.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+    });
+    const lowStock = products.filter((p) => p.stockQuantity <= p.lowStockThreshold);
+    return reply.send({ products: lowStock });
+  });
+
+  // Stock take
+  app.post("/products/stock-take", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+    const schema = z.object({
+      items: z.array(z.object({ productId: z.string(), countedQuantity: z.number().int().min(0) })),
+    });
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid input", code: "VALIDATION_ERROR" });
+
+    const adjustments: { productId: string; name: string; before: number; after: number; variance: number }[] = [];
+
+    await prisma.$transaction(async (tx) => {
+      for (const item of parsed.data.items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        if (!product) continue;
+        const variance = item.countedQuantity - product.stockQuantity;
+        if (variance !== 0) {
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              quantity: variance,
+              reason: "stock_take",
+              createdBy: request.user.sub,
+            },
+          });
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stockQuantity: item.countedQuantity },
+          });
+        }
+        adjustments.push({ productId: item.productId, name: product.name, before: product.stockQuantity, after: item.countedQuantity, variance });
+      }
+    });
+
+    return reply.send({ adjustments });
+  });
 }
