@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Mail, Phone, Calendar, Upload, Trash2, FileText, ImageIcon, ClipboardList, AlertCircle, MapPin, X, Plus } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Calendar, Upload, Trash2, FileText, ImageIcon, ClipboardList, AlertCircle, MapPin, X, Plus, Send } from "lucide-react";
 import { api } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -29,6 +29,7 @@ export default function PatientDetailPage() {
   const [activeTab, setActiveTab] = useState<"appointments" | "medical" | "consent" | "images" | "facemap" | "forms" | "payments">("appointments");
   const [consentModal, setConsentModal] = useState(false);
   const [consentForm, setConsentForm] = useState({ treatmentName: "", content: "", signedByName: "" });
+  const [sendFormModal, setSendFormModal] = useState(false);
 
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -172,10 +173,15 @@ export default function PatientDetailPage() {
                 </div>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-[var(--muted-foreground)]">Total Spent</p>
-              <p className="text-2xl font-bold">&pound;{(totalSpent / 100).toFixed(2)}</p>
-              <p className="text-sm text-[var(--muted-foreground)]">{appointments.length} appointments</p>
+            <div className="text-right space-y-2">
+              <div>
+                <p className="text-sm text-[var(--muted-foreground)]">Total Spent</p>
+                <p className="text-2xl font-bold">&pound;{(totalSpent / 100).toFixed(2)}</p>
+                <p className="text-sm text-[var(--muted-foreground)]">{appointments.length} appointments</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setSendFormModal(true)}>
+                <Send className="h-3.5 w-3.5 mr-1" /> Send Form
+              </Button>
             </div>
           </div>
         </Card>
@@ -371,6 +377,15 @@ export default function PatientDetailPage() {
         )}
       </div>
 
+      {sendFormModal && (
+        <SendFormModal
+          clientId={patient.id}
+          clientEmail={patient.email}
+          clientPhone={patient.phone}
+          onClose={() => setSendFormModal(false)}
+        />
+      )}
+
       {consentModal && (
         <Modal open onClose={() => setConsentModal(false)} title="Add Consent Form">
           <div className="space-y-4">
@@ -430,10 +445,11 @@ interface Annotation {
 }
 
 const ANNOTATION_COLORS = [
-  { label: "Treatment", value: "#ef4444" },
-  { label: "Caution", value: "#f59e0b" },
-  { label: "Note", value: "#3b82f6" },
-  { label: "Result", value: "#10b981" },
+  { label: "Botox", value: "#3b82f6" },
+  { label: "Filler", value: "#ec4899" },
+  { label: "Polynucleotide", value: "#10b981" },
+  { label: "Peel", value: "#f59e0b" },
+  { label: "Filler Dissolver", value: "#8b5cf6" },
 ];
 
 function FaceMapTab({ clientId }: { clientId: string }) {
@@ -730,5 +746,110 @@ function MedicalHistoryTab({
         </div>
       </div>
     </Card>
+  );
+}
+
+function SendFormModal({
+  clientId,
+  clientEmail,
+  clientPhone,
+  onClose,
+}: {
+  clientId: string;
+  clientEmail: string;
+  clientPhone?: string;
+  onClose: () => void;
+}) {
+  const [templateId, setTemplateId] = useState("");
+  const [channel, setChannel] = useState<"email" | "sms" | "both">("email");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  const { data } = useQuery({
+    queryKey: ["form-templates"],
+    queryFn: async () => {
+      const res = await api.get("/forms/templates");
+      return res.data as { templates: { id: string; name: string; type: string }[] };
+    },
+  });
+
+  const templates = data?.templates ?? [];
+
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      await api.post("/forms/request", { clientId, templateId, channel });
+    },
+    onSuccess: () => setSent(true),
+    onError: (err: unknown) => {
+      setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Failed to send");
+    },
+  });
+
+  return (
+    <Modal open onClose={onClose} title="Send Form to Patient">
+      {sent ? (
+        <div className="space-y-4">
+          <p className="text-sm text-green-600 font-medium">Form link sent successfully!</p>
+          <div className="flex justify-end">
+            <Button onClick={onClose}>Close</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Form Template</label>
+            <select
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm focus:border-[var(--primary)] focus:outline-none"
+            >
+              <option value="">Select a template...</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Send Via</label>
+            <div className="flex gap-2">
+              {(["email", "sms", "both"] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setChannel(c)}
+                  className={clsx(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    channel === c
+                      ? "border-[var(--primary)] bg-[var(--accent)] text-[var(--primary)]"
+                      : "border-[var(--border)] text-[var(--muted-foreground)]"
+                  )}
+                >
+                  {c === "email" ? "Email" : c === "sms" ? "SMS" : "Both"}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {channel !== "sms" && `Email: ${clientEmail}`}
+              {channel === "both" && " · "}
+              {channel !== "email" && (clientPhone ? `SMS: ${clientPhone}` : "No phone number on file")}
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+            <Button
+              type="button"
+              onClick={() => sendMutation.mutate()}
+              disabled={!templateId || sendMutation.isPending || (channel !== "email" && !clientPhone)}
+            >
+              {sendMutation.isPending ? "Sending..." : "Send"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }

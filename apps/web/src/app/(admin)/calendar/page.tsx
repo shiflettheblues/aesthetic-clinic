@@ -19,7 +19,7 @@ interface Appointment {
   endsAt: string;
   status: string;
   notes?: string;
-  client: { id: string; firstName: string; lastName: string };
+  client: { id: string; firstName: string; lastName: string; consentForms?: { id: string }[] };
   practitioner: { id: string; firstName: string; lastName: string };
   treatment: { id: string; name: string; durationMinutes: number; priceCents: number };
 }
@@ -170,25 +170,31 @@ export default function CalendarPage() {
               })}
 
               {/* Appointments */}
-              {pracAppointments.map((apt) => (
-                <div
-                  key={apt.id}
-                  className={clsx(
-                    "absolute left-1 right-1 rounded border px-2 py-1 overflow-hidden cursor-pointer",
-                    statusColors[apt.status]
-                  )}
-                  style={getAppointmentStyle(apt)}
-                  onClick={() => { setEditingAppointment(apt); setEditModal(true); }}
-                >
-                  <p className="text-xs font-medium truncate">
-                    {apt.client.firstName} {apt.client.lastName}
-                  </p>
-                  <p className="text-xs truncate">{apt.treatment.name}</p>
-                  <p className="text-xs">
-                    {format(parseISO(apt.startsAt), "HH:mm")} - {format(parseISO(apt.endsAt), "HH:mm")}
-                  </p>
-                </div>
-              ))}
+              {pracAppointments.map((apt) => {
+                const hasConsent = (apt.client.consentForms?.length ?? 0) > 0;
+                return (
+                  <div
+                    key={apt.id}
+                    className={clsx(
+                      "absolute left-1 right-1 rounded border px-2 py-1 overflow-hidden cursor-pointer",
+                      statusColors[apt.status]
+                    )}
+                    style={getAppointmentStyle(apt)}
+                    onClick={() => { setEditingAppointment(apt); setEditModal(true); }}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-xs font-medium truncate">
+                        {apt.client.firstName} {apt.client.lastName}
+                      </p>
+                      {hasConsent && <span className="text-xs shrink-0" title="Consent form on file">✓</span>}
+                    </div>
+                    <p className="text-xs truncate">{apt.treatment.name}</p>
+                    <p className="text-xs">
+                      {format(parseISO(apt.startsAt), "HH:mm")} - {format(parseISO(apt.endsAt), "HH:mm")}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
