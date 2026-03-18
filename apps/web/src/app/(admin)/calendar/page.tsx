@@ -328,18 +328,34 @@ function CreateAppointmentModal({
   selectedSlot: { practitionerId: string; time: Date } | null;
   onCreated: () => void;
 }) {
-  const [step, setStep] = useState<"details" | "confirm">("details");
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     clientSearch: "",
     clientId: "",
     clientName: "",
-    practitionerId: selectedSlot?.practitionerId ?? "",
+    practitionerId: "",
     treatmentId: "",
-    date: selectedSlot ? format(selectedSlot.time, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
-    time: selectedSlot ? format(selectedSlot.time, "HH:mm") : "09:00",
+    date: format(new Date(), "yyyy-MM-dd"),
+    time: "09:00",
     notes: "",
   });
+
+  // Reset form each time the modal opens, applying any pre-selected slot
+  useEffect(() => {
+    if (open) {
+      setError("");
+      setForm({
+        clientSearch: "",
+        clientId: "",
+        clientName: "",
+        practitionerId: selectedSlot?.practitionerId ?? "",
+        treatmentId: "",
+        date: selectedSlot ? format(selectedSlot.time, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
+        time: selectedSlot ? format(selectedSlot.time, "HH:mm") : "09:00",
+        notes: "",
+      });
+    }
+  }, [open, selectedSlot]);
 
 
   const { data: clientsData } = useQuery({
