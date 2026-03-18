@@ -331,22 +331,7 @@ export default function PatientDetailPage() {
         {activeTab === "facemap" && <FaceMapTab clientId={patient.id} />}
 
         {activeTab === "forms" && (
-          <div className="space-y-3">
-            {forms.length === 0 ? (
-              <p className="text-sm text-[var(--muted-foreground)]">No forms submitted</p>
-            ) : (
-              forms.map((form) => (
-                <Card key={form.id} className="!p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">Intake Form</p>
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      {format(new Date(form.createdAt), "d MMM yyyy")}
-                    </p>
-                  </div>
-                </Card>
-              ))
-            )}
-          </div>
+          <FormSubmissionsTab clientId={patient.id} />
         )}
 
         {activeTab === "payments" && (
@@ -851,5 +836,167 @@ function SendFormModal({
         </div>
       )}
     </Modal>
+  );
+}
+
+// ─── Form Submissions Tab (enhanced viewer) ───
+
+interface SubmissionField {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+}
+
+interface FormSubmissionData {
+  id: string;
+  createdAt: string;
+  signatureUrl?: string;
+  signedAt?: string;
+  responses: Record<string, unknown>;
+  template: {
+    id: string;
+    name: string;
+    formType: string;
+    fields: SubmissionField[];
+  };
+}
+
+const CONTRAINDICATION_KEYWORDS = [
+  "allergy", "allergies", "allergic", "pregnant", "breastfeeding",
+  "contraindication", "infection", "inflammation",
+];
+
+function isContraindication(field: SubmissionField, value: unknown): boolean {
+  if (field.type !== "boolean" || !value) return false;
+  const lower = (field.key + " " + field.label).toLowerCase();
+  return CONTRAINDICATION_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+function FormSubmissionsTab({ clientId }: { clientId: string }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["form-submissions", clientId],
+    queryFn: async () => {
+      const res = await api.get(`/forms/submissions?clientId=${clientId}`);
+      return res.data as { submissions: FormSubmissionData[] };
+    },
+  });
+
+  if (isLoading) {
+    return <p className="text-sm text-[var(--muted-foreground)]">Loading forms...</p>;
+  }
+
+  const submissions = data?.submissions ?? [];
+
+  if (submissions.length === 0) {
+    return <p className="text-sm text-[var(--muted-foreground)]">No forms submitted</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {submissions.map((sub) => {
+        const isExpanded = expandedId === sub.id;
+        const fields = (sub.template?.fields ?? []) as SubmissionField[];
+        const hasContraindications = fields.some((f) => isContraindication(f, sub.responses[f.key]));
+
+        return (
+          <Card key={sub.id} className="!p-0 overflow-hidden">
+            <button
+              onClick={() => setExpandedId(isExpanded ? null : sub.id)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--muted)]/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="h-4 w-4 text-[var(--muted-foreground)]" />
+                <div>
+                  <p className="text-sm font-medium">{sub.template?.name ?? "Form"}</p>
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    {format(new Date(sub.createdAt), "d MMM yyyy, HH:mm")}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {hasContraindications && (
+                  <Badge variant="destructive">Contraindications</Badge>
+                )}
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  {isExpanded ? "Hide" : "View"}
+                </span>
+              </div>
+            </button>
+
+            {isExpanded && (
+              <div className="border-t border-[var(--border)] px-4 py-4 space-y-3">
+                {fields.map((field) => {
+                  if (field.type === "section") {
+                    return (
+                      <div key={field.key} className="pt-3 pb-1 border-b border-[var(--border)]">
+                        <h4 className="text-sm font-semibold text-[var(--primary)]">{field.label}</h4>
+                      </div>
+                    );
+                  }
+
+                  const value = sub.responses[field.key];
+                  if (value === undefined || value === null || value === "") return null;
+
+                  const isFlagged = isContraindication(field, value);
+
+                  if (field.type === "signature") {
+                    const sigUrl = (value as string) || sub.signatureUrl;
+                    return (
+                      <div key={field.key} className="space-y-1">
+                        <p className="text-xs font-medium text-[var(--muted-foreground)]">{field.label}</p>
+                        {sigUrl ? (
+                          <div className="border border-[var(--border)] rounded-lg p-2 bg-white inline-block">
+                            <img src={sigUrl} alt="Signature" className="h-16" />
+                          </div>
+                        ) : (
+                          <p className="text-sm italic text-[var(--muted-foreground)]">No signature</p>
+                        )}
+                        {sub.signedAt && (
+                          <p className="text-xs text-[var(--muted-foreground)]">
+                            Signed: {format(new Date(sub.signedAt), "d MMM yyyy, HH:mm")}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (field.type === "boolean") {
+                    return (
+                      <div
+                        key={field.key}
+                        className={clsx(
+                          "flex items-start gap-2 rounded-lg px-3 py-2 text-sm",
+                          isFlagged ? "bg-red-50 border border-red-200" : ""
+                        )}
+                      >
+                        <span className={clsx("font-medium flex-shrink-0", isFlagged ? "text-red-700" : "")}>
+                          {value ? "YES" : "NO"}
+                        </span>
+                        <span className={isFlagged ? "text-red-700" : "text-[var(--muted-foreground)]"}>
+                          {field.label}
+                        </span>
+                        {isFlagged && (
+                          <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 ml-auto" />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={field.key} className="space-y-0.5">
+                      <p className="text-xs font-medium text-[var(--muted-foreground)]">{field.label}</p>
+                      <p className="text-sm">{String(value)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        );
+      })}
+    </div>
   );
 }
