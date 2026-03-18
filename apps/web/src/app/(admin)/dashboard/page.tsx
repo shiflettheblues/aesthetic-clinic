@@ -55,7 +55,7 @@ export default function DashboardPage() {
                   <Calendar className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-[var(--muted-foreground)]">Today&apos;s Appointments</p>
+                  <p className="text-sm text-[var(--muted-foreground)] whitespace-nowrap">Today&apos;s Appointments</p>
                   <p className="text-2xl font-bold">{appointments.length}</p>
                 </div>
               </div>
@@ -69,7 +69,7 @@ export default function DashboardPage() {
                   <DollarSign className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-[var(--muted-foreground)]">Today&apos;s Revenue</p>
+                  <p className="text-sm text-[var(--muted-foreground)] whitespace-nowrap">Today&apos;s Revenue</p>
                   <p className="text-2xl font-bold">&pound;{(todayRevenue / 100).toFixed(2)}</p>
                 </div>
               </div>
