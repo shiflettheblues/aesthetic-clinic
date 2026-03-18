@@ -64,6 +64,11 @@ export default function BookingPage() {
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
 
+  // Promo code
+  const [promoCode, setPromoCode] = useState("");
+  const [promoResult, setPromoResult] = useState<{ valid: boolean; discountType: string; discountValue: number } | null>(null);
+  const [promoError, setPromoError] = useState("");
+
   // Treatments
   const { data: treatmentsData } = useQuery({
     queryKey: ["treatments", "active"],
@@ -141,6 +146,26 @@ export default function BookingPage() {
       router.push("/?booked=1");
     },
   });
+
+  const validatePromo = async () => {
+    setPromoError("");
+    setPromoResult(null);
+    try {
+      const res = await api.post("/promo-codes/validate", {
+        code: promoCode,
+        treatmentId: firstTreatment?.id,
+      });
+      setPromoResult(res.data);
+    } catch {
+      setPromoError("Invalid or expired promo code");
+    }
+  };
+
+  const discountedTotal = promoResult
+    ? promoResult.discountType === "percentage"
+      ? Math.round(totalPrice * (1 - promoResult.discountValue / 100))
+      : Math.max(0, totalPrice - promoResult.discountValue * 100)
+    : totalPrice;
 
   const treatments = treatmentsData?.treatments ?? [];
   const practitioners = practitionersData?.practitioners ?? [];
@@ -545,18 +570,61 @@ export default function BookingPage() {
                   <span className="text-[var(--muted-foreground)]">Total Duration</span>
                   <span className="font-medium">{totalDuration} minutes</span>
                 </div>
+                {/* Promo code */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Promo code"
+                    className="flex-1 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm uppercase focus:border-[var(--primary)] focus:outline-none"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value.toUpperCase());
+                      setPromoResult(null);
+                      setPromoError("");
+                    }}
+                  />
+                  <button
+                    onClick={validatePromo}
+                    disabled={!promoCode}
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-medium disabled:opacity-50 hover:bg-[var(--muted)] transition-colors"
+                  >
+                    Apply
+                  </button>
+                </div>
+                {promoError && <p className="text-xs text-red-600">{promoError}</p>}
+                {promoResult && (
+                  <p className="text-xs text-green-600 font-medium">
+                    ✓ {promoResult.discountType === "percentage" ? `${promoResult.discountValue}% off` : `£${promoResult.discountValue} off`} applied
+                  </p>
+                )}
+
                 <hr className="border-[var(--border)]" />
+                {promoResult && (
+                  <div className="flex justify-between text-sm text-[var(--muted-foreground)]">
+                    <span>Discount</span>
+                    <span className="text-green-600 font-medium">
+                      -&pound;{((totalPrice - discountedTotal) / 100).toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-base">
                   <span className="font-semibold">Total</span>
                   <span className="font-bold">
-                    &pound;{(totalPrice / 100).toFixed(2)}
+                    {promoResult ? (
+                      <>
+                        <span className="line-through text-[var(--muted-foreground)] text-sm mr-1">&pound;{(totalPrice / 100).toFixed(2)}</span>
+                        &pound;{(discountedTotal / 100).toFixed(2)}
+                      </>
+                    ) : (
+                      <>&pound;{(totalPrice / 100).toFixed(2)}</>
+                    )}
                   </span>
                 </div>
                 {depositPercent > 0 && (
                   <div className="flex justify-between text-sm text-[var(--muted-foreground)]">
                     <span>Deposit required ({depositPercent}%)</span>
                     <span className="font-medium text-[var(--foreground)]">
-                      &pound;{(totalPrice * depositPercent / 10000).toFixed(2)}
+                      &pound;{(discountedTotal * depositPercent / 10000).toFixed(2)}
                     </span>
                   </div>
                 )}
