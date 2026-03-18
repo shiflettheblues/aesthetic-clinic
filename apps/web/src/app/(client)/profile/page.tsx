@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -46,9 +46,11 @@ export default function ProfilePage() {
     } : undefined,
   });
 
+  const queryClient = useQueryClient();
+
   const onSubmit = async (formData: FormData) => {
-    // Profile update endpoint would go here
-    // For now, just show saved state
+    await api.patch("/auth/me", formData);
+    queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };

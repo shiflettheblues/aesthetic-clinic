@@ -2,13 +2,14 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Calendar, Gift, Crown, UserPlus, UserCircle, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, Gift, Crown, UserPlus, UserCircle, ShoppingBag, LogOut } from "lucide-react";
 import clsx from "clsx";
 import { useAuthStore } from "@/lib/auth";
 
 const navItems = [
   { href: "/my-dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/my-appointments", label: "Appointments", icon: Calendar },
+  { href: "/shop", label: "Shop", icon: ShoppingBag },
   { href: "/my-loyalty", label: "Rewards", icon: Gift },
   { href: "/my-membership", label: "Membership", icon: Crown },
   { href: "/my-referrals", label: "Referrals", icon: UserPlus },

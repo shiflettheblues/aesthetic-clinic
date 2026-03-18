@@ -201,4 +201,28 @@ export async function authRoutes(app: FastifyInstance) {
 
     return reply.send({ user });
   });
+
+  // Update profile (client)
+  app.patch("/auth/me", { preHandler: authenticate }, async (request, reply) => {
+    const schema = z.object({
+      firstName: z.string().min(1).optional(),
+      lastName: z.string().min(1).optional(),
+      phone: z.string().optional(),
+      dateOfBirth: z.string().optional().nullable(),
+      emergencyContactName: z.string().optional(),
+      emergencyContactPhone: z.string().optional(),
+    });
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid input" });
+    const { dateOfBirth, ...rest } = parsed.data;
+    const updated = await prisma.user.update({
+      where: { id: request.user.sub },
+      data: {
+        ...rest,
+        ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}),
+      },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, dateOfBirth: true, role: true },
+    });
+    return reply.send({ user: updated });
+  });
 }
