@@ -646,7 +646,7 @@ export default function ReportsPage() {
     <>
       <Header title="Reports" />
       {/* Date range */}
-      <div className="border-b border-[var(--border)] bg-white px-6 py-3">
+      <div className="border-b border-[var(--border)] bg-white px-4 sm:px-6 py-3">
         <div className="flex items-center gap-3 flex-wrap">
           <input type="date" className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
           <span className="text-sm text-[var(--muted-foreground)]">to</span>
@@ -659,7 +659,7 @@ export default function ReportsPage() {
         </div>
       </div>
       {/* Main tabs */}
-      <div className="border-b border-[var(--border)] bg-white px-6">
+      <div className="border-b border-[var(--border)] bg-white px-4 sm:px-6">
         <div className="flex gap-1 overflow-x-auto">
           {MAIN_TABS.map((t) => (
             <button
@@ -675,7 +675,7 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {tab === "Business" && <BusinessTab from={from} to={to} params={params} />}
         {tab === "Appointments" && <AppointmentsTab from={from} to={to} params={params} />}
         {tab === "Clients" && <ClientsTab from={from} to={to} params={params} />}

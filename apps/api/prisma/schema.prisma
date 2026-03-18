@@ -100,6 +100,7 @@ model User {
   clientWaitlist           WaitlistEntry[] @relation("ClientWaitlist")
   practitionerWaitlist     WaitlistEntry[] @relation("PractitionerWaitlist")
   faceMap                  FaceMap?
+  isArchived               Boolean         @default(false) @map("is_archived")
 
   @@map("users")
 }
@@ -549,6 +550,28 @@ model StaffTarget {
   practitioner User @relation(fields: [practitionerId], references: [id])
 
   @@map("staff_targets")
+}
+
+// --- Phase 11: SOP Templates ---
+
+enum SopType {
+  TREATMENT_PLAN
+  SKINCARE_ROUTINE
+  BRIDAL_PACKAGE
+  AFTERCARE_GUIDE
+  OTHER
+}
+
+model SopTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  type        SopType
+  content     String   // markdown/plain text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("sop_templates")
 }
 
 // --- Phase 10: Waitlist, Closed Dates, Face Mapping ---

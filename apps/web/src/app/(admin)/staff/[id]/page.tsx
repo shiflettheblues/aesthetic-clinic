@@ -33,7 +33,7 @@ export default function StaffDetailPage() {
 
   const member = data?.staff.find((s) => s.id === id);
 
-  if (isLoading) return <><Header title="Staff" /><div className="p-6 text-[var(--muted-foreground)]">Loading...</div></>;
+  if (isLoading) return <><Header title="Staff" /><div className="p-4 sm:p-6 text-[var(--muted-foreground)]">Loading...</div></>;
   if (!member) return null;
 
   const { stats } = member;
@@ -41,7 +41,7 @@ export default function StaffDetailPage() {
   return (
     <>
       <Header title="Staff Details" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>

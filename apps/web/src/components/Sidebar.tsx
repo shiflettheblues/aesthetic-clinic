@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Users, Settings, LogOut, BarChart3, Megaphone, UserCheck, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, Settings, LogOut, BarChart3, Megaphone, UserCheck, ClipboardList, Menu, X } from "lucide-react";
 import clsx from "clsx";
 import { useAuthStore } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -18,7 +19,7 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar() {
+function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user, logout, refreshToken } = useAuthStore();
 
@@ -33,18 +34,15 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-[var(--border)] bg-white">
-      <div className="flex h-16 items-center px-6 border-b border-[var(--border)]">
-        <h1 className="text-lg font-bold text-[var(--primary)]">Dr Skin Central</h1>
-      </div>
-
-      <nav className="flex-1 px-3 py-4 space-y-1">
+    <>
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={clsx(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 active
@@ -77,6 +75,63 @@ export function Sidebar() {
           Log out
         </button>
       </div>
+    </>
+  );
+}
+
+export function MobileHeader() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <div className="flex h-14 items-center justify-between border-b border-[var(--border)] bg-white px-4 lg:hidden">
+        <h1 className="text-base font-bold text-[var(--primary)]">Dr Skin Central</h1>
+        <button
+          onClick={() => setOpen(true)}
+          className="rounded-lg p-2 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Drawer overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Drawer */}
+      <div
+        className={clsx(
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-white border-r border-[var(--border)] transition-transform duration-200 lg:hidden",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <div className="flex h-14 items-center justify-between px-6 border-b border-[var(--border)]">
+          <h1 className="text-base font-bold text-[var(--primary)]">Dr Skin Central</h1>
+          <button
+            onClick={() => setOpen(false)}
+            className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <NavContent onNavigate={() => setOpen(false)} />
+      </div>
+    </>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <aside className="hidden lg:flex h-screen w-64 flex-col border-r border-[var(--border)] bg-white">
+      <div className="flex h-16 items-center px-6 border-b border-[var(--border)]">
+        <h1 className="text-lg font-bold text-[var(--primary)]">Dr Skin Central</h1>
+      </div>
+      <NavContent />
     </aside>
   );
 }

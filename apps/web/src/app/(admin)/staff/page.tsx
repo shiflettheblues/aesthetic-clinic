@@ -54,12 +54,17 @@ export default function StaffPage() {
   return (
     <>
       <Header title="Staff" />
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Staff Performance</h2>
-          <Button size="sm" onClick={() => setTargetModal(true)}>
-            <Target className="h-4 w-4 mr-1" /> Set Target
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/staff/roster">
+              <Button variant="secondary" size="sm">Roster & Timesheet</Button>
+            </Link>
+            <Button size="sm" onClick={() => setTargetModal(true)}>
+              <Target className="h-4 w-4 mr-1" /> Set Target
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (

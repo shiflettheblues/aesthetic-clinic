@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { useAuthStore } from "@/lib/auth";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -20,7 +20,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-auto bg-[var(--muted)]">{children}</main>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <MobileHeader />
+        <main className="flex-1 overflow-auto bg-[var(--muted)]">{children}</main>
+      </div>
     </div>
   );
 }

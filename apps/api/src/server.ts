@@ -25,6 +25,7 @@ import { notificationTemplateRoutes } from "./routes/notification-templates.js";
 import { packageRoutes } from "./routes/packages.js";
 import { staffRoutes } from "./routes/staff.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
+import { sopTemplateRoutes } from "./routes/sop-templates.js";
 import { closedDateRoutes } from "./routes/closed-dates.js";
 import { faceMapRoutes } from "./routes/face-maps.js";
 
@@ -69,6 +70,7 @@ await app.register(notificationTemplateRoutes);
 await app.register(packageRoutes);
 await app.register(staffRoutes);
 await app.register(waitlistRoutes);
+await app.register(sopTemplateRoutes);
 await app.register(closedDateRoutes);
 await app.register(faceMapRoutes);
 

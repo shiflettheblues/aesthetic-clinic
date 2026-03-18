@@ -15,7 +15,7 @@ export function Header({ title }: { title: string }) {
   });
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-[var(--border)] bg-white px-6">
+    <header className="flex h-14 lg:h-16 items-center justify-between border-b border-[var(--border)] bg-white px-4 lg:px-6">
       <h1 className="text-xl font-semibold">{title}</h1>
       <div className="flex items-center gap-4">
         <button className="relative p-2 rounded-lg hover:bg-[var(--muted)]">

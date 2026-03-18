@@ -88,7 +88,7 @@ export default function WaitlistPage() {
         </div>
       </div>
 
-      <div className="p-6 space-y-3">
+      <div className="p-4 sm:p-6 space-y-3">
         {isLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>}
         {!isLoading && entries.length === 0 && (
           <div className="text-center py-12">

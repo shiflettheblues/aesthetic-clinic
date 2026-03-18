@@ -128,4 +128,86 @@ export async function staffRoutes(app: FastifyInstance) {
     await prisma.staffTarget.delete({ where: { id } });
     return reply.send({ message: "Target deleted" });
   });
+
+  // Roster — all practitioners with working hours
+  app.get("/staff/roster", { preHandler: requireRole("ADMIN") }, async (_req, reply) => {
+    const practitioners = await prisma.user.findMany({
+      where: { role: "PRACTITIONER" },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        workingHoursStart: true,
+        workingHoursEnd: true,
+        workingDays: true,
+      },
+      orderBy: { firstName: "asc" },
+    });
+    return reply.send({ practitioners });
+  });
+
+  // Timesheet — appointments by practitioner for a date range
+  app.get("/staff/timesheet", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+    const { from, to, practitionerId } = request.query as {
+      from?: string;
+      to?: string;
+      practitionerId?: string;
+    };
+
+    const fromDate = from ? dayjs(from).startOf("day").toDate() : dayjs().startOf("week").toDate();
+    const toDate = to ? dayjs(to).endOf("day").toDate() : dayjs().endOf("week").toDate();
+
+    const where: Record<string, unknown> = {
+      startsAt: { gte: fromDate, lte: toDate },
+      status: { not: "CANCELLED" },
+    };
+    if (practitionerId) where.practitionerId = practitionerId;
+
+    const appointments = await prisma.appointment.findMany({
+      where,
+      include: {
+        practitioner: { select: { id: true, firstName: true, lastName: true } },
+        treatment: { select: { name: true, durationMinutes: true, priceCents: true } },
+        client: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { startsAt: "asc" },
+    });
+
+    // Group by practitioner
+    const grouped = new Map<string, {
+      practitioner: { id: string; firstName: string; lastName: string };
+      appointments: typeof appointments;
+      totalMinutes: number;
+      totalRevenueCents: number;
+    }>();
+
+    for (const appt of appointments) {
+      const p = appt.practitioner;
+      if (!grouped.has(p.id)) {
+        grouped.set(p.id, { practitioner: p, appointments: [], totalMinutes: 0, totalRevenueCents: 0 });
+      }
+      const entry = grouped.get(p.id)!;
+      entry.appointments.push(appt);
+      entry.totalMinutes += appt.treatment?.durationMinutes ?? 0;
+      if (appt.status === "COMPLETED") entry.totalRevenueCents += appt.treatment?.priceCents ?? 0;
+    }
+
+    return reply.send({ timesheet: [...grouped.values()], from: fromDate, to: toDate });
+  });
+
+  // Update practitioner working hours (admin)
+  app.patch("/staff/:id/working-hours", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const schema = z.object({
+      workingHoursStart: z.string().optional(),
+      workingHoursEnd: z.string().optional(),
+      workingDays: z.array(z.number().int().min(0).max(6)).optional(),
+    });
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid input" });
+    const practitioner = await prisma.user.findFirst({ where: { id, role: "PRACTITIONER" } });
+    if (!practitioner) return reply.status(404).send({ error: "Not found" });
+    await prisma.user.update({ where: { id }, data: parsed.data });
+    return reply.send({ message: "Updated" });
+  });
 }

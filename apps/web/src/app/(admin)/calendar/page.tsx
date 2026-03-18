@@ -244,7 +244,7 @@ export default function CalendarPage() {
   return (
     <>
       <Header title="Calendar" />
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <div className="flex flex-col h-[calc(100vh-7rem)] lg:h-[calc(100vh-4rem)]">
         {/* Toolbar */}
         <div className="flex items-center justify-between border-b border-[var(--border)] bg-white px-4 py-3">
           <div className="flex items-center gap-2">

@@ -73,6 +73,16 @@ export default function BookingPage() {
     },
   });
 
+  // Public settings (deposit %)
+  const { data: depositSetting } = useQuery({
+    queryKey: ["setting-deposit"],
+    queryFn: async () => {
+      const res = await api.get("/settings/booking_deposit_percent");
+      return res.data as { value: number };
+    },
+  });
+  const depositPercent = Number(depositSetting?.value ?? 0);
+
   // Practitioners
   const { data: practitionersData } = useQuery({
     queryKey: ["practitioners"],
@@ -542,6 +552,14 @@ export default function BookingPage() {
                     &pound;{(totalPrice / 100).toFixed(2)}
                   </span>
                 </div>
+                {depositPercent > 0 && (
+                  <div className="flex justify-between text-sm text-[var(--muted-foreground)]">
+                    <span>Deposit required ({depositPercent}%)</span>
+                    <span className="font-medium text-[var(--foreground)]">
+                      &pound;{(totalPrice * depositPercent / 10000).toFixed(2)}
+                    </span>
+                  </div>
+                )}
               </div>
             </Card>
 

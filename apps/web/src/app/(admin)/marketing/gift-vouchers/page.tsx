@@ -53,7 +53,7 @@ export default function GiftVouchersPage() {
   return (
     <>
       <Header title="Gift Vouchers" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card>
             <p className="text-sm text-[var(--muted-foreground)]">Active Vouchers</p>

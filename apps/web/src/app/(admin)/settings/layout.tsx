@@ -14,6 +14,7 @@ const tabs = [
   { href: "/settings/forms", label: "Forms" },
   { href: "/settings/packages", label: "Packages" },
   { href: "/settings/notifications", label: "Notifications" },
+  { href: "/settings/sop-templates", label: "SOP Templates" },
   { href: "/settings/integrations", label: "Integrations" },
 ];
 
@@ -41,7 +42,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           ))}
         </div>
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-4 sm:p-6">{children}</div>
     </>
   );
 }

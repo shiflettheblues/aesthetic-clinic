@@ -45,7 +45,7 @@ export default function DashboardPage() {
   return (
     <>
       <Header title="Dashboard" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link href="/calendar" className="block hover:shadow-md transition-shadow rounded-xl">

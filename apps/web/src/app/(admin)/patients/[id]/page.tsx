@@ -107,7 +107,7 @@ export default function PatientDetailPage() {
     return (
       <>
         <Header title="Patient" />
-        <div className="p-6 text-[var(--muted-foreground)]">Loading...</div>
+        <div className="p-4 sm:p-6 text-[var(--muted-foreground)]">Loading...</div>
       </>
     );
   }
@@ -136,7 +136,7 @@ export default function PatientDetailPage() {
   return (
     <>
       <Header title="Patient Details" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>

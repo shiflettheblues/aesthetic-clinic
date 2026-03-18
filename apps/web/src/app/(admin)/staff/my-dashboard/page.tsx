@@ -27,7 +27,7 @@ export default function MyDashboardPage() {
     },
   });
 
-  if (isLoading) return <><Header title="My Dashboard" /><div className="p-6 text-[var(--muted-foreground)]">Loading...</div></>;
+  if (isLoading) return <><Header title="My Dashboard" /><div className="p-4 sm:p-6 text-[var(--muted-foreground)]">Loading...</div></>;
   if (!data) return null;
 
   const { practitioner, stats } = data;
@@ -35,7 +35,7 @@ export default function MyDashboardPage() {
   return (
     <>
       <Header title="My Dashboard" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         <h2 className="text-lg font-semibold">Welcome, {practitioner.firstName}</h2>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
