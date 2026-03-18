@@ -101,6 +101,9 @@ model User {
   practitionerWaitlist     WaitlistEntry[] @relation("PractitionerWaitlist")
   faceMap                  FaceMap?
   isArchived               Boolean         @default(false) @map("is_archived")
+  medicalHistory           MedicalHistory?
+  consentForms             ConsentForm[]
+  patientImages            PatientImage[]
 
   @@map("users")
 }
@@ -636,4 +639,47 @@ model IntegrationConfig {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("integration_configs")
+}
+
+// --- Patient Clinical Records ---
+
+model MedicalHistory {
+  id          String   @id @default(cuid())
+  clientId    String   @unique @map("client_id")
+  allergies   String   @default("")
+  medications String   @default("")
+  conditions  String   @default("")
+  notes       String   @default("")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("medical_histories")
+}
+
+model ConsentForm {
+  id             String   @id @default(cuid())
+  clientId       String   @map("client_id")
+  treatmentName  String   @map("treatment_name")
+  content        String
+  signedByName   String   @map("signed_by_name")
+  signedAt       DateTime @default(now()) @map("signed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("consent_forms")
+}
+
+model PatientImage {
+  id        String   @id @default(cuid())
+  clientId  String   @map("client_id")
+  url       String
+  label     String   @default("")
+  takenAt   DateTime @default(now()) @map("taken_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("patient_images")
 }

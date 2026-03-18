@@ -10,6 +10,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
@@ -26,6 +27,8 @@ export default function PatientDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"appointments" | "medical" | "consent" | "images" | "facemap" | "forms" | "payments">("appointments");
+  const [consentModal, setConsentModal] = useState(false);
+  const [consentForm, setConsentForm] = useState({ treatmentName: "", content: "", signedByName: "" });
 
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,11 +90,20 @@ export default function PatientDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient", id] }),
   });
 
+  const createConsentMutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/patients/${id}/consent-forms`, consentForm);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["patient", id] });
+      setConsentModal(false);
+      setConsentForm({ treatmentName: "", content: "", signedByName: "" });
+    },
+  });
+
   const uploadImageMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      await api.post(`/patients/${id}/images`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+    mutationFn: async ({ dataUrl, label }: { dataUrl: string; label: string }) => {
+      await api.post(`/patients/${id}/images`, { dataUrl, label });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient", id] }),
   });
@@ -169,13 +181,13 @@ export default function PatientDetailPage() {
         </Card>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-[var(--border)]">
+        <div className="flex gap-1 border-b border-[var(--border)] overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                "px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors",
                 activeTab === tab.id
                   ? "border-[var(--primary)] text-[var(--primary)]"
                   : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
@@ -223,6 +235,11 @@ export default function PatientDetailPage() {
 
         {activeTab === "consent" && (
           <div className="space-y-3">
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => setConsentModal(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Add Consent Form
+              </Button>
+            </div>
             {consentForms.length === 0 ? (
               <p className="text-sm text-[var(--muted-foreground)]">No consent forms signed</p>
             ) : (
@@ -269,10 +286,12 @@ export default function PatientDetailPage() {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   const label = prompt("Label (e.g. 'Before - Lip Filler')") ?? "Untitled";
-                  const formData = new FormData();
-                  formData.append("file", file);
-                  formData.append("label", label);
-                  uploadImageMutation.mutate(formData);
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    const dataUrl = ev.target?.result as string;
+                    if (dataUrl) uploadImageMutation.mutate({ dataUrl, label });
+                  };
+                  reader.readAsDataURL(file);
                   e.target.value = "";
                 }}
               />
@@ -351,6 +370,52 @@ export default function PatientDetailPage() {
           </div>
         )}
       </div>
+
+      {consentModal && (
+        <Modal open onClose={() => setConsentModal(false)} title="Add Consent Form">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Treatment Name</label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
+                placeholder="e.g. Lip Filler"
+                value={consentForm.treatmentName}
+                onChange={(e) => setConsentForm((f) => ({ ...f, treatmentName: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Signed By (Patient Name)</label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
+                placeholder="Full name as signed"
+                value={consentForm.signedByName}
+                onChange={(e) => setConsentForm((f) => ({ ...f, signedByName: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Consent Content</label>
+              <textarea
+                rows={6}
+                className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono"
+                placeholder="Paste the signed consent text..."
+                value={consentForm.content}
+                onChange={(e) => setConsentForm((f) => ({ ...f, content: e.target.value }))}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setConsentModal(false)}>Cancel</Button>
+              <Button
+                onClick={() => createConsentMutation.mutate()}
+                disabled={!consentForm.treatmentName || !consentForm.signedByName || !consentForm.content || createConsentMutation.isPending}
+              >
+                {createConsentMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }

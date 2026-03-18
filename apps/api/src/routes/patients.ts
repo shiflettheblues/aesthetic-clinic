@@ -116,7 +116,7 @@ export async function patientRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Patient not found", code: "NOT_FOUND" });
     }
 
-    const [appointments, forms, payments] = await Promise.all([
+    const [appointments, forms, payments, medicalHistory, consentForms, patientImages] = await Promise.all([
       prisma.appointment.findMany({
         where: { clientId: id },
         include: {
@@ -133,9 +133,78 @@ export async function patientRoutes(app: FastifyInstance) {
         where: { clientId: id },
         orderBy: { createdAt: "desc" },
       }),
+      prisma.medicalHistory.findUnique({ where: { clientId: id } }),
+      prisma.consentForm.findMany({ where: { clientId: id }, orderBy: { signedAt: "desc" } }),
+      prisma.patientImage.findMany({ where: { clientId: id }, orderBy: { takenAt: "desc" } }),
     ]);
 
-    return reply.send({ patient, appointments, forms, payments });
+    return reply.send({ patient, appointments, forms, payments, medicalHistory, consentForms, images: patientImages });
+  });
+
+  // Medical history — upsert
+  app.put("/patients/:id/medical-history", { preHandler: requireRole("ADMIN", "PRACTITIONER") }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const schema = z.object({
+      allergies: z.string().default(""),
+      medications: z.string().default(""),
+      conditions: z.string().default(""),
+      notes: z.string().default(""),
+    });
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid input" });
+    const record = await prisma.medicalHistory.upsert({
+      where: { clientId: id },
+      update: parsed.data,
+      create: { clientId: id, ...parsed.data },
+    });
+    return reply.send({ medicalHistory: record });
+  });
+
+  // Consent forms — create
+  app.post("/patients/:id/consent-forms", { preHandler: requireRole("ADMIN", "PRACTITIONER") }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const schema = z.object({
+      treatmentName: z.string().min(1),
+      content: z.string().min(1),
+      signedByName: z.string().min(1),
+    });
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid input" });
+    const form = await prisma.consentForm.create({ data: { clientId: id, ...parsed.data } });
+    return reply.status(201).send({ consentForm: form });
+  });
+
+  // Consent forms — delete
+  app.delete("/patients/:id/consent-forms/:formId", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+    const { formId } = request.params as { id: string; formId: string };
+    await prisma.consentForm.delete({ where: { id: formId } });
+    return reply.send({ message: "Deleted" });
+  });
+
+  // Patient images — upload as base64
+  app.post("/patients/:id/images", { preHandler: requireRole("ADMIN", "PRACTITIONER") }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const schema = z.object({
+      dataUrl: z.string().min(1), // base64 data URI
+      label: z.string().optional(),
+    });
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid input" });
+    const image = await prisma.patientImage.create({
+      data: {
+        clientId: id,
+        url: parsed.data.dataUrl,
+        label: parsed.data.label ?? "",
+      },
+    });
+    return reply.status(201).send({ image });
+  });
+
+  // Patient images — delete
+  app.delete("/patients/:id/images/:imageId", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+    const { imageId } = request.params as { id: string; imageId: string };
+    await prisma.patientImage.delete({ where: { id: imageId } });
+    return reply.send({ message: "Deleted" });
   });
 
   // Archive / unarchive patient
