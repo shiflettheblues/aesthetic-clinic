@@ -522,6 +522,7 @@ function EditAppointmentModal({
   const [status, setStatus] = useState(appointment?.status ?? "CONFIRMED");
   const [date, setDate] = useState(appointment ? format(parseISO(appointment.startsAt), "yyyy-MM-dd") : "");
   const [time, setTime] = useState(appointment ? format(parseISO(appointment.startsAt), "HH:mm") : "");
+  const [notes, setNotes] = useState(appointment?.notes ?? "");
   const [error, setError] = useState("");
 
   // Reset form when appointment changes
@@ -530,6 +531,7 @@ function EditAppointmentModal({
       setStatus(appointment.status);
       setDate(format(parseISO(appointment.startsAt), "yyyy-MM-dd"));
       setTime(format(parseISO(appointment.startsAt), "HH:mm"));
+      setNotes(appointment.notes ?? "");
       setError("");
     }
   }, [appointment]);
@@ -540,6 +542,7 @@ function EditAppointmentModal({
       if (status !== appointment?.status) data.status = status;
       const newStartsAt = new Date(`${date}T${time}:00`).toISOString();
       if (newStartsAt !== appointment?.startsAt) data.startsAt = newStartsAt;
+      if (notes !== (appointment?.notes ?? "")) data.notes = notes;
       if (Object.keys(data).length === 0) return;
       const res = await api.patch(`/appointments/${appointment?.id}`, data);
       return res.data;
@@ -609,6 +612,17 @@ function EditAppointmentModal({
             type="time"
             value={time}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTime(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Notes</label>
+          <textarea
+            className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm resize-none"
+            rows={2}
+            placeholder="Clinical notes, reminders..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
           />
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell } from "lucide-react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
@@ -18,14 +19,14 @@ export function Header({ title }: { title: string }) {
     <header className="flex h-14 lg:h-16 items-center justify-between border-b border-[var(--border)] bg-white px-4 lg:px-6">
       <h1 className="text-xl font-semibold">{title}</h1>
       <div className="flex items-center gap-4">
-        <button className="relative p-2 rounded-lg hover:bg-[var(--muted)]">
+        <Link href="/notifications" className="relative p-2 rounded-lg hover:bg-[var(--muted)] block">
           <Bell className="h-5 w-5 text-[var(--muted-foreground)]" />
           {(data?.unreadCount ?? 0) > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--destructive)] text-[10px] text-white">
               {data?.unreadCount}
             </span>
           )}
-        </button>
+        </Link>
       </div>
     </header>
   );
