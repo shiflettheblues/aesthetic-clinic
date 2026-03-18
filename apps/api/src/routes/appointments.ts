@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { prisma } from "../lib/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { getAvailableSlots, lockSlot, unlockSlot } from "../services/availability.js";
-import { notifyBookingCreated, notifyBookingCancelled } from "../services/notification.js";
+import { notifyBookingCreated, notifyBookingCancelled, sendTemplatedNotification, buildAppointmentVars, createNotification } from "../services/notification.js";
 import { sendEmail } from "../services/email.js";
 
 const createSchema = z.object({
@@ -202,13 +202,31 @@ export async function appointmentRoutes(app: FastifyInstance) {
     // Release slot lock
     await unlockSlot(practitionerId, startsAt);
 
-    // Send notifications
+    // Send in-app notifications
     await notifyBookingCreated({
       clientId,
       practitionerId,
       treatmentName: treatment.name,
       startsAt: new Date(startsAt),
     });
+
+    // Send templated email/SMS confirmation
+    try {
+      const vars = buildAppointmentVars({
+        clientName: appointment.client.firstName,
+        treatmentName: treatment.name,
+        practitionerName: `${appointment.practitioner.firstName} ${appointment.practitioner.lastName}`,
+        startsAt: new Date(startsAt),
+      });
+      await sendTemplatedNotification({
+        type: "BOOKING_CONFIRMED",
+        clientEmail: appointment.client.email ?? null,
+        clientPhone: null, // phone not in create select — send on confirm only
+        vars,
+      });
+    } catch (e) {
+      console.error("[NOTIFY] Booking confirmed send error:", e);
+    }
 
     // Auto-award loyalty points
     try {
@@ -269,10 +287,18 @@ export async function appointmentRoutes(app: FastifyInstance) {
       where: { id },
       data,
       include: {
-        client: { select: { id: true, firstName: true, lastName: true } },
+        client: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
         practitioner: { select: { id: true, firstName: true, lastName: true } },
         treatment: { select: { id: true, name: true } },
       },
+    });
+
+    const client = appointment.client;
+    const vars = buildAppointmentVars({
+      clientName: client.firstName,
+      treatmentName: existing.treatment.name,
+      practitionerName: `${appointment.practitioner.firstName} ${appointment.practitioner.lastName}`,
+      startsAt: existing.startsAt,
     });
 
     if (parsed.data.status === "CANCELLED") {
@@ -282,10 +308,80 @@ export async function appointmentRoutes(app: FastifyInstance) {
         treatmentName: existing.treatment.name,
         startsAt: existing.startsAt,
       });
+      // Send templated cancellation email/SMS
+      try {
+        await sendTemplatedNotification({
+          type: "BOOKING_CANCELLED",
+          clientEmail: client.email ?? null,
+          clientPhone: client.phone ?? null,
+          vars,
+        });
+      } catch (e) {
+        console.error("[NOTIFY] Cancellation send error:", e);
+      }
     }
 
-    // Auto-send Google review request on completion
+    // Rescheduled: notify client of new time
+    if (parsed.data.startsAt && parsed.data.status !== "CANCELLED") {
+      try {
+        const newVars = buildAppointmentVars({
+          clientName: client.firstName,
+          treatmentName: existing.treatment.name,
+          practitionerName: `${appointment.practitioner.firstName} ${appointment.practitioner.lastName}`,
+          startsAt: new Date(parsed.data.startsAt),
+        });
+        await sendTemplatedNotification({
+          type: "BOOKING_CONFIRMED",
+          clientEmail: client.email ?? null,
+          clientPhone: client.phone ?? null,
+          vars: newVars,
+        });
+      } catch (e) {
+        console.error("[NOTIFY] Reschedule send error:", e);
+      }
+    }
+
+    // Completed: send follow-up + aftercare SOPs
     if (parsed.data.status === "COMPLETED") {
+      // Send follow-up message
+      try {
+        await sendTemplatedNotification({
+          type: "FOLLOW_UP",
+          clientEmail: client.email ?? null,
+          clientPhone: client.phone ?? null,
+          vars,
+        });
+      } catch (e) {
+        console.error("[NOTIFY] Follow-up send error:", e);
+      }
+
+      // Send aftercare SOP guides
+      try {
+        const aftercareTemplates = await prisma.sopTemplate.findMany({
+          where: { type: "AFTERCARE_GUIDE", isActive: true },
+        });
+        if (aftercareTemplates.length > 0 && client.email) {
+          const aftercareHtml = aftercareTemplates
+            .map((t) => `<h3>${t.name}</h3><div style="white-space:pre-wrap">${t.content}</div>`)
+            .join("<hr>");
+          await sendEmail({
+            to: client.email,
+            subject: `Aftercare Instructions — ${existing.treatment.name}`,
+            html: `
+              <h2>Aftercare Instructions</h2>
+              <p>Hi ${client.firstName},</p>
+              <p>Thank you for your ${existing.treatment.name} today. Please follow these aftercare instructions:</p>
+              ${aftercareHtml}
+              <p>If you have any questions, please contact the clinic.</p>
+              <p>Dr Skin Central</p>
+            `,
+          });
+        }
+      } catch (e) {
+        console.error("[AFTERCARE] Failed to send aftercare instructions:", e);
+      }
+
+      // Auto-send Google review request
       try {
         const googleConfig = await prisma.integrationConfig.findUnique({
           where: { provider: "google_reviews" },
@@ -294,22 +390,19 @@ export async function appointmentRoutes(app: FastifyInstance) {
           const settings = (googleConfig.settings as Record<string, unknown>) ?? {};
           const placeId = settings.placeId as string;
           const autoSend = settings.autoSendReview !== false;
-          if (placeId && autoSend) {
-            const client = await prisma.user.findUnique({ where: { id: existing.clientId } });
-            if (client?.email) {
-              const reviewUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
-              await sendEmail({
-                to: client.email,
-                subject: "How was your visit? Leave us a review!",
-                html: `
-                  <h2>Thank you for visiting us!</h2>
-                  <p>Hi ${client.firstName},</p>
-                  <p>We hope you enjoyed your ${existing.treatment.name} today. We'd love to hear your feedback!</p>
-                  <p><a href="${reviewUrl}" style="display:inline-block;background:#7c3aed;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;">Leave a Google Review</a></p>
-                  <p>Thank you for choosing Aesthetic Clinic!</p>
-                `,
-              });
-            }
+          if (placeId && autoSend && client.email) {
+            const reviewUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
+            await sendEmail({
+              to: client.email,
+              subject: "How was your visit? Leave us a review!",
+              html: `
+                <h2>Thank you for visiting us!</h2>
+                <p>Hi ${client.firstName},</p>
+                <p>We hope you enjoyed your ${existing.treatment.name} today. We'd love to hear your feedback!</p>
+                <p><a href="${reviewUrl}" style="display:inline-block;background:#7c3aed;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;">Leave a Google Review</a></p>
+                <p>Thank you for choosing Dr Skin Central!</p>
+              `,
+            });
           }
         }
       } catch (e) {
@@ -318,5 +411,58 @@ export async function appointmentRoutes(app: FastifyInstance) {
     }
 
     return reply.send({ appointment });
+  });
+
+  // Send 24h reminders — call this from an external cron (e.g. daily at 10am)
+  app.post("/appointments/send-reminders", { preHandler: requireRole("ADMIN") }, async (_request, reply) => {
+    const now = dayjs();
+    const windowStart = now.add(23, "hour").toDate();
+    const windowEnd = now.add(25, "hour").toDate();
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        startsAt: { gte: windowStart, lte: windowEnd },
+        status: "CONFIRMED",
+        reminder24hSentAt: null,
+      },
+      include: {
+        client: { select: { id: true, firstName: true, email: true, phone: true } },
+        practitioner: { select: { id: true, firstName: true, lastName: true } },
+        treatment: { select: { name: true } },
+      },
+    });
+
+    let sent = 0;
+    for (const appt of appointments) {
+      try {
+        const vars = buildAppointmentVars({
+          clientName: appt.client.firstName,
+          treatmentName: appt.treatment.name,
+          practitionerName: `${appt.practitioner.firstName} ${appt.practitioner.lastName}`,
+          startsAt: appt.startsAt,
+        });
+        await sendTemplatedNotification({
+          type: "BOOKING_REMINDER_24H",
+          clientEmail: appt.client.email ?? null,
+          clientPhone: appt.client.phone ?? null,
+          vars,
+        });
+        await createNotification({
+          userId: appt.client.id,
+          type: "BOOKING_REMINDER_24H",
+          title: "Appointment Tomorrow",
+          body: `Reminder: ${appt.treatment.name} tomorrow at ${dayjs(appt.startsAt).format("HH:mm")}.`,
+        });
+        await prisma.appointment.update({
+          where: { id: appt.id },
+          data: { reminder24hSentAt: new Date() },
+        });
+        sent++;
+      } catch (e) {
+        console.error(`[REMINDERS] Failed for appointment ${appt.id}:`, e);
+      }
+    }
+
+    return reply.send({ sent, total: appointments.length });
   });
 }

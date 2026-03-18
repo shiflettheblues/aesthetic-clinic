@@ -161,12 +161,6 @@ export default function BookingPage() {
     }
   };
 
-  const discountedTotal = promoResult
-    ? promoResult.discountType === "percentage"
-      ? Math.round(totalPrice * (1 - promoResult.discountValue / 100))
-      : Math.max(0, totalPrice - promoResult.discountValue * 100)
-    : totalPrice;
-
   const treatments = treatmentsData?.treatments ?? [];
   const practitioners = practitionersData?.practitioners ?? [];
   const slots = slotsData?.slots ?? [];
@@ -195,6 +189,11 @@ export default function BookingPage() {
 
   const totalPrice = selectedTreatments.reduce((sum, t) => sum + t.priceCents, 0);
   const totalDuration = selectedTreatments.reduce((sum, t) => sum + t.durationMinutes, 0);
+  const discountedTotal = promoResult
+    ? promoResult.discountType === "percentage"
+      ? Math.round(totalPrice * (1 - promoResult.discountValue / 100))
+      : Math.max(0, totalPrice - promoResult.discountValue * 100)
+    : totalPrice;
 
   const steps: { key: Step; label: string }[] = [
     { key: "treatment", label: "Treatment" },

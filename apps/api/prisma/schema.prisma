@@ -139,6 +139,7 @@ model Appointment {
   notes            String?
   depositPaid      Boolean           @default(false) @map("deposit_paid")
   depositAmountCents Int?            @map("deposit_amount_cents")
+  reminder24hSentAt DateTime?        @map("reminder_24h_sent_at")
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
