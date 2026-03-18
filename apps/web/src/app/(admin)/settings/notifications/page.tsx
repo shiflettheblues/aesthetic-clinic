@@ -111,17 +111,25 @@ export default function NotificationsSettingsPage() {
 function EditTemplateModal({ template, onClose, onSaved }: { template: NotifTemplate; onClose: () => void; onSaved: () => void }) {
   const [subject, setSubject] = useState(template.subject ?? "");
   const [body, setBody] = useState(template.body);
+  const [isActive, setIsActive] = useState(template.isActive);
   const [preview, setPreview] = useState<{ body: string; subject?: string } | null>(null);
   const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       await api.patch(`/notification-templates/${template.id}`, {
         subject: template.channel === "EMAIL" ? subject : undefined,
         body,
+        isActive,
       });
     },
-    onSuccess: () => onSaved(),
+    onSuccess: () => {
+      setSaved(true);
+      setTimeout(() => {
+        onSaved();
+      }, 800);
+    },
     onError: (err: unknown) => {
       setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Failed to save");
     },
@@ -142,11 +150,31 @@ function EditTemplateModal({ template, onClose, onSaved }: { template: NotifTemp
     <Modal open onClose={onClose} title={`Edit — ${TYPE_LABELS[template.type] ?? template.type} (${template.channel})`} className="max-w-2xl">
       {error && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
       <div className="space-y-4">
+
+        {/* Active toggle */}
+        <label className="flex items-center justify-between rounded-lg border border-[var(--border)] p-3 cursor-pointer">
+          <div>
+            <p className="text-sm font-medium">Active</p>
+            <p className="text-xs text-[var(--muted-foreground)]">Send this message automatically when the event occurs</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsActive((v) => !v)}
+            className={clsx(
+              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+              isActive ? "bg-[var(--primary)]" : "bg-[var(--border)]"
+            )}
+          >
+            <span className={clsx("inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform", isActive ? "translate-x-6" : "translate-x-1")} />
+          </button>
+        </label>
+
         <div className="flex flex-wrap gap-1.5">
-          <p className="text-xs text-[var(--muted-foreground)] w-full">Available variables:</p>
+          <p className="text-xs text-[var(--muted-foreground)] w-full">Click to insert a variable:</p>
           {VARIABLES.map((v) => (
             <button
               key={v}
+              type="button"
               onClick={() => setBody((b) => b + v)}
               className="rounded-md bg-[var(--accent)] px-2 py-0.5 text-xs text-[var(--primary)] hover:opacity-80"
             >
@@ -178,12 +206,13 @@ function EditTemplateModal({ template, onClose, onSaved }: { template: NotifTemp
         )}
 
         <div className="flex justify-between pt-2">
-          <Button variant="secondary" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
+          <Button variant="secondary" type="button" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
             {previewMutation.isPending ? "Loading..." : "Preview"}
           </Button>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={!body || saveMutation.isPending}>
+          <div className="flex items-center gap-2">
+            {saved && <span className="text-sm text-green-600">Saved!</span>}
+            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+            <Button type="button" onClick={() => saveMutation.mutate()} disabled={!body || saveMutation.isPending}>
               {saveMutation.isPending ? "Saving..." : "Save"}
             </Button>
           </div>
