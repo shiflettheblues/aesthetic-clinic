@@ -24,6 +24,9 @@ import { giftCardRoutes } from "./routes/gift-cards.js";
 import { notificationTemplateRoutes } from "./routes/notification-templates.js";
 import { packageRoutes } from "./routes/packages.js";
 import { staffRoutes } from "./routes/staff.js";
+import { waitlistRoutes } from "./routes/waitlist.js";
+import { closedDateRoutes } from "./routes/closed-dates.js";
+import { faceMapRoutes } from "./routes/face-maps.js";
 
 const app = Fastify({ logger: true });
 
@@ -65,6 +68,9 @@ await app.register(giftCardRoutes);
 await app.register(notificationTemplateRoutes);
 await app.register(packageRoutes);
 await app.register(staffRoutes);
+await app.register(waitlistRoutes);
+await app.register(closedDateRoutes);
+await app.register(faceMapRoutes);
 
 // Start
 const port = Number(process.env.PORT) || 3001;

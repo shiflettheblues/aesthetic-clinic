@@ -3,14 +3,14 @@
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Mail, Phone, Calendar, Upload, Trash2, FileText, ImageIcon, ClipboardList, AlertCircle } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Calendar, Upload, Trash2, FileText, ImageIcon, ClipboardList, AlertCircle, MapPin, X, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 
@@ -25,7 +25,7 @@ const statusVariant: Record<string, "default" | "success" | "warning" | "destruc
 export default function PatientDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"appointments" | "medical" | "consent" | "images" | "forms" | "payments">("appointments");
+  const [activeTab, setActiveTab] = useState<"appointments" | "medical" | "consent" | "images" | "facemap" | "forms" | "payments">("appointments");
 
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -128,6 +128,7 @@ export default function PatientDetailPage() {
     { id: "medical" as const, label: "Medical History", count: null },
     { id: "consent" as const, label: "Consent Forms", count: consentForms.length },
     { id: "images" as const, label: "Images", count: images.length },
+    { id: "facemap" as const, label: "Face Map", count: null },
     { id: "forms" as const, label: "Forms", count: forms.length },
     { id: "payments" as const, label: "Payments", count: payments.length },
   ];
@@ -302,6 +303,8 @@ export default function PatientDetailPage() {
           </div>
         )}
 
+        {activeTab === "facemap" && <FaceMapTab clientId={patient.id} />}
+
         {activeTab === "forms" && (
           <div className="space-y-3">
             {forms.length === 0 ? (
@@ -349,6 +352,249 @@ export default function PatientDetailPage() {
         )}
       </div>
     </>
+  );
+}
+
+interface Annotation {
+  id: string;
+  x: number;
+  y: number;
+  label: string;
+  color: string;
+  view: "front" | "side";
+}
+
+const ANNOTATION_COLORS = [
+  { label: "Treatment", value: "#ef4444" },
+  { label: "Caution", value: "#f59e0b" },
+  { label: "Note", value: "#3b82f6" },
+  { label: "Result", value: "#10b981" },
+];
+
+function FaceMapTab({ clientId }: { clientId: string }) {
+  const queryClient = useQueryClient();
+  const [view, setView] = useState<"front" | "side">("front");
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [selectedColor, setSelectedColor] = useState("#ef4444");
+  const [pendingLabel, setPendingLabel] = useState<{ x: number; y: number } | null>(null);
+  const [labelInput, setLabelInput] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["facemap", clientId],
+    queryFn: async () => {
+      const res = await api.get(`/face-maps/${clientId}`);
+      return res.data as { faceMap: { annotations: Annotation[] } | null };
+    },
+  });
+
+  useEffect(() => {
+    if (data?.faceMap) setAnnotations(data.faceMap.annotations);
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await api.put(`/face-maps/${clientId}`, { annotations });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["facemap", clientId] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
+
+  const handleCanvasClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+    setPendingLabel({ x, y });
+    setLabelInput("");
+  };
+
+  const confirmAnnotation = () => {
+    if (!pendingLabel || !labelInput.trim()) return;
+    setAnnotations((prev) => [
+      ...prev,
+      { id: Math.random().toString(36).slice(2), x: pendingLabel.x, y: pendingLabel.y, label: labelInput.trim(), color: selectedColor, view },
+    ]);
+    setPendingLabel(null);
+    setLabelInput("");
+  };
+
+  const removeAnnotation = (id: string) => setAnnotations((prev) => prev.filter((a) => a.id !== id));
+
+  const visibleAnnotations = annotations.filter((a) => a.view === view);
+
+  // Simple SVG face outlines
+  const FrontFace = () => (
+    <g>
+      {/* Head */}
+      <ellipse cx="200" cy="160" rx="130" ry="155" fill="#fef3c7" stroke="#d97706" strokeWidth="2" />
+      {/* Ears */}
+      <ellipse cx="72" cy="175" rx="18" ry="28" fill="#fde68a" stroke="#d97706" strokeWidth="1.5" />
+      <ellipse cx="328" cy="175" rx="18" ry="28" fill="#fde68a" stroke="#d97706" strokeWidth="1.5" />
+      {/* Eyes */}
+      <ellipse cx="155" cy="155" rx="22" ry="14" fill="white" stroke="#374151" strokeWidth="1.5" />
+      <ellipse cx="245" cy="155" rx="22" ry="14" fill="white" stroke="#374151" strokeWidth="1.5" />
+      <circle cx="155" cy="155" r="8" fill="#374151" />
+      <circle cx="245" cy="155" r="8" fill="#374151" />
+      {/* Eyebrows */}
+      <path d="M133 138 Q155 128 177 138" stroke="#374151" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <path d="M223 138 Q245 128 267 138" stroke="#374151" strokeWidth="2" fill="none" strokeLinecap="round" />
+      {/* Nose */}
+      <path d="M200 165 L188 205 Q200 212 212 205 L200 165" fill="#fde68a" stroke="#d97706" strokeWidth="1.5" />
+      {/* Mouth */}
+      <path d="M170 230 Q200 250 230 230" stroke="#374151" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <path d="M170 230 Q200 235 230 230" stroke="#fda4af" strokeWidth="8" fill="none" strokeLinecap="round" opacity="0.6" />
+      {/* Chin */}
+      <path d="M130 270 Q200 320 270 270" stroke="#d97706" strokeWidth="1" fill="none" />
+      {/* Hair line */}
+      <path d="M80 120 Q200 50 320 120" stroke="#92400e" strokeWidth="3" fill="none" />
+    </g>
+  );
+
+  const SideFace = () => (
+    <g>
+      {/* Head profile */}
+      <path d="M200 30 Q310 40 330 130 Q350 200 300 280 Q250 340 180 320 Q130 300 120 250 Q80 180 110 100 Q140 40 200 30Z" fill="#fef3c7" stroke="#d97706" strokeWidth="2" />
+      {/* Ear */}
+      <ellipse cx="128" cy="185" rx="20" ry="30" fill="#fde68a" stroke="#d97706" strokeWidth="1.5" />
+      {/* Eye */}
+      <ellipse cx="240" cy="155" rx="20" ry="12" fill="white" stroke="#374151" strokeWidth="1.5" />
+      <circle cx="248" cy="155" r="7" fill="#374151" />
+      {/* Eyebrow */}
+      <path d="M220 138 Q245 128 268 135" stroke="#374151" strokeWidth="2" fill="none" strokeLinecap="round" />
+      {/* Nose profile */}
+      <path d="M285 175 L310 200 L295 215" stroke="#d97706" strokeWidth="2" fill="#fde68a" />
+      {/* Mouth profile */}
+      <path d="M280 240 Q295 248 285 255" stroke="#374151" strokeWidth="2" fill="none" />
+      {/* Chin */}
+      <path d="M265 290 Q240 320 200 320" stroke="#d97706" strokeWidth="1.5" fill="none" />
+      {/* Hair */}
+      <path d="M200 30 Q280 20 330 80" stroke="#92400e" strokeWidth="3" fill="none" />
+      {/* Neck */}
+      <rect x="160" y="315" width="60" height="50" rx="10" fill="#fef3c7" stroke="#d97706" strokeWidth="1.5" />
+    </g>
+  );
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-1">
+            {(["front", "side"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${view === v ? "bg-[var(--primary)] text-white" : "bg-[var(--muted)] text-[var(--muted-foreground)]"}`}
+              >
+                {v === "front" ? "Front View" : "Side View"}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[var(--muted-foreground)]">Colour:</span>
+            {ANNOTATION_COLORS.map((c) => (
+              <button
+                key={c.value}
+                title={c.label}
+                onClick={() => setSelectedColor(c.value)}
+                className={`h-6 w-6 rounded-full border-2 transition-transform ${selectedColor === c.value ? "border-[var(--foreground)] scale-125" : "border-transparent"}`}
+                style={{ backgroundColor: c.value }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <p className="text-xs text-[var(--muted-foreground)] mb-3 flex items-center gap-1">
+          <MapPin className="h-3 w-3" /> Click on the face diagram to add an annotation
+        </p>
+
+        <div className="relative">
+          <svg
+            viewBox="0 0 400 370"
+            className="w-full max-w-sm mx-auto border border-[var(--border)] rounded-xl bg-white cursor-crosshair"
+            onClick={handleCanvasClick}
+          >
+            {view === "front" ? <FrontFace /> : <SideFace />}
+
+            {/* Annotations */}
+            {visibleAnnotations.map((ann) => (
+              <g key={ann.id}>
+                <circle cx={ann.x * 4} cy={ann.y * 3.7} r="8" fill={ann.color} opacity="0.85" />
+                <text
+                  x={ann.x * 4 + 11}
+                  y={ann.y * 3.7 + 4}
+                  fontSize="10"
+                  fill={ann.color}
+                  fontWeight="600"
+                  style={{ userSelect: "none" }}
+                >
+                  {ann.label}
+                </text>
+              </g>
+            ))}
+
+            {/* Pending pin */}
+            {pendingLabel && (
+              <circle cx={pendingLabel.x * 4} cy={pendingLabel.y * 3.7} r="8" fill={selectedColor} opacity="0.5" strokeDasharray="3" stroke={selectedColor} strokeWidth="2" />
+            )}
+          </svg>
+
+          {/* Label input popup */}
+          {pendingLabel && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="bg-white border border-[var(--border)] rounded-xl shadow-lg p-4 w-56">
+                <p className="text-sm font-medium mb-2">Add annotation</p>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="e.g. Botox 4 units"
+                  className="w-full rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm mb-3 focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                  value={labelInput}
+                  onChange={(e) => setLabelInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") confirmAnnotation(); if (e.key === "Escape") setPendingLabel(null); }}
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={confirmAnnotation} disabled={!labelInput.trim()}>
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setPendingLabel(null)}>Cancel</Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Annotation list */}
+        {visibleAnnotations.length > 0 && (
+          <div className="mt-4 space-y-1">
+            <p className="text-xs font-medium text-[var(--muted-foreground)] mb-2">{view === "front" ? "Front" : "Side"} annotations</p>
+            {visibleAnnotations.map((ann) => (
+              <div key={ann.id} className="flex items-center justify-between text-sm py-1 border-b border-[var(--border)] last:border-0">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: ann.color }} />
+                  <span>{ann.label}</span>
+                </div>
+                <button onClick={() => removeAnnotation(ann.id)} className="text-[var(--muted-foreground)] hover:text-red-500 transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border)]">
+          <span className="text-xs text-[var(--muted-foreground)]">{annotations.length} annotation{annotations.length !== 1 ? "s" : ""} total</span>
+          <div className="flex items-center gap-2">
+            {saved && <span className="text-xs text-green-600">Saved!</span>}
+            <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? "Saving..." : "Save Face Map"}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 }
 

@@ -27,6 +27,14 @@ export async function getAvailableSlots(
   const dayOfWeek = dayjs(date).day(); // 0=Sun, 6=Sat
   if (!practitioner.workingDays.includes(dayOfWeek)) return [];
 
+  // Check clinic-wide closed dates
+  const dateStart = dayjs(date).startOf("day").toDate();
+  const dateEnd = dayjs(date).endOf("day").toDate();
+  const closedDate = await prisma.closedDate.findFirst({
+    where: { date: { gte: dateStart, lte: dateEnd } },
+  });
+  if (closedDate) return [];
+
   const start = practitioner.workingHoursStart ?? "09:00";
   const end = practitioner.workingHoursEnd ?? "18:00";
 

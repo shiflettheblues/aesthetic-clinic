@@ -97,6 +97,9 @@ model User {
   referralsMade            Referral[] @relation("Referrer")
   referralsReceived        Referral[] @relation("Referred")
   staffTargets             StaffTarget[]
+  clientWaitlist           WaitlistEntry[] @relation("ClientWaitlist")
+  practitionerWaitlist     WaitlistEntry[] @relation("PractitionerWaitlist")
+  faceMap                  FaceMap?
 
   @@map("users")
 }
@@ -116,6 +119,7 @@ model Treatment {
   packages          Package[]
   formTemplates     FormTemplate[]
   treatmentProducts TreatmentProduct[]
+  waitlistEntries   WaitlistEntry[]
 
   @@map("treatments")
 }
@@ -545,6 +549,54 @@ model StaffTarget {
   practitioner User @relation(fields: [practitionerId], references: [id])
 
   @@map("staff_targets")
+}
+
+// --- Phase 10: Waitlist, Closed Dates, Face Mapping ---
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  BOOKED
+  CANCELLED
+}
+
+model WaitlistEntry {
+  id              String         @id @default(cuid())
+  clientId        String         @map("client_id")
+  treatmentId     String         @map("treatment_id")
+  practitionerId  String?        @map("practitioner_id")
+  preferredDate   DateTime?      @map("preferred_date")
+  notes           String?
+  status          WaitlistStatus @default(WAITING)
+  notifiedAt      DateTime?      @map("notified_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  client       User      @relation("ClientWaitlist", fields: [clientId], references: [id])
+  treatment    Treatment @relation(fields: [treatmentId], references: [id])
+  practitioner User?     @relation("PractitionerWaitlist", fields: [practitionerId], references: [id])
+
+  @@map("waitlist_entries")
+}
+
+model ClosedDate {
+  id        String   @id @default(cuid())
+  date      DateTime
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("closed_dates")
+}
+
+model FaceMap {
+  id          String   @id @default(cuid())
+  clientId    String   @unique @map("client_id")
+  annotations Json     @default("[]") // [{x, y, label, color, view}]
+  imageData   String?  @map("image_data") // base64 canvas drawing
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  client User @relation(fields: [clientId], references: [id])
+
+  @@map("face_maps")
 }
 
 // --- Phase 6: Integrations ---
