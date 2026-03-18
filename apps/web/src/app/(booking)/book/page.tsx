@@ -1,22 +1,27 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, isToday, isPast, addMonths, subMonths } from "date-fns";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   Clock,
   ShoppingBag,
+  ChevronLeft,
+  ChevronRight,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import clsx from "clsx";
 
 function formatPrice(cents: number) {
@@ -48,9 +53,102 @@ interface Slot {
   endsAt: string;
 }
 
+// Compact month calendar component
+function CalendarPicker({
+  selected,
+  onSelect,
+}: {
+  selected: string;
+  onSelect: (date: string) => void;
+}) {
+  const [viewMonth, setViewMonth] = useState(() => {
+    const d = new Date(selected + "T00:00:00");
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const monthStart = startOfMonth(viewMonth);
+  const monthEnd = endOfMonth(viewMonth);
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+
+  const days: Date[] = [];
+  let cur = calStart;
+  while (cur <= calEnd) {
+    days.push(cur);
+    cur = addDays(cur, 1);
+  }
+
+  const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  return (
+    <div className="bg-white rounded-xl border border-[var(--border)] p-4">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => setViewMonth((m) => subMonths(m, 1))}
+          className="p-1.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="text-sm font-semibold">{format(viewMonth, "MMMM yyyy")}</span>
+        <button
+          onClick={() => setViewMonth((m) => addMonths(m, 1))}
+          className="p-1.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAY_LABELS.map((d) => (
+          <div key={d} className="text-center text-xs font-medium text-[var(--muted-foreground)] py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Date grid */}
+      <div className="grid grid-cols-7 gap-0.5">
+        {days.map((day) => {
+          const dateStr = format(day, "yyyy-MM-dd");
+          const isSelected = dateStr === selected;
+          const isDisabled = day < today;
+          const isCurrentMonth = isSameMonth(day, viewMonth);
+          const isTodayDate = isToday(day);
+
+          return (
+            <button
+              key={dateStr}
+              disabled={isDisabled}
+              onClick={() => onSelect(dateStr)}
+              className={clsx(
+                "h-9 w-full rounded-lg text-sm transition-colors relative",
+                isSelected && "bg-[var(--primary)] text-white font-semibold",
+                !isSelected && !isDisabled && isCurrentMonth && "hover:bg-[var(--accent)] hover:text-[var(--primary)]",
+                !isSelected && isDisabled && "opacity-30 cursor-not-allowed",
+                !isSelected && !isCurrentMonth && "text-[var(--muted-foreground)] opacity-40",
+                !isSelected && isTodayDate && "font-bold text-[var(--primary)]"
+              )}
+            >
+              {format(day, "d")}
+              {isTodayDate && !isSelected && (
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-[var(--primary)]" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function BookingPage() {
   const router = useRouter();
-  const { accessToken } = useAuthStore();
+  const { accessToken, user: authUser } = useAuthStore();
   const isLoggedIn = !!accessToken;
   const [step, setStep] = useState<Step>("treatment");
   const [selectedTreatments, setSelectedTreatments] = useState<Treatment[]>([]);
@@ -58,8 +156,10 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  // Guest details
+  // Guest/autofill details
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -68,6 +168,26 @@ export default function BookingPage() {
   const [promoCode, setPromoCode] = useState("");
   const [promoResult, setPromoResult] = useState<{ valid: boolean; discountType: string; discountValue: number } | null>(null);
   const [promoError, setPromoError] = useState("");
+
+  // Fetch logged-in user profile to autopopulate
+  const { data: meData } = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: async () => {
+      const res = await api.get("/auth/me");
+      return res.data as { user: { id: string; firstName: string; lastName: string; email: string; phone?: string } };
+    },
+    enabled: isLoggedIn,
+  });
+
+  // Autopopulate fields when logged in
+  useEffect(() => {
+    if (meData?.user) {
+      const u = meData.user;
+      setGuestName(`${u.firstName} ${u.lastName}`.trim());
+      setGuestEmail(u.email ?? "");
+      setGuestPhone(u.phone ?? "");
+    }
+  }, [meData]);
 
   // Treatments
   const { data: treatmentsData } = useQuery({
@@ -98,7 +218,6 @@ export default function BookingPage() {
     enabled: step === "practitioner" || step === "datetime" || step === "confirm",
   });
 
-  // Use first selected treatment for availability query
   const firstTreatment = selectedTreatments[0] ?? null;
 
   // Availability
@@ -124,15 +243,14 @@ export default function BookingPage() {
     },
   });
 
-  // Create appointments for all selected treatments
+  // Create appointments
   const bookMutation = useMutation({
     mutationFn: async () => {
+      const clientId = meData?.user?.id;
       const results = await Promise.all(
         selectedTreatments.map((treatment) =>
           api.post("/appointments", {
-            guestName,
-            guestEmail,
-            guestPhone,
+            clientId: clientId!,
             practitionerId: selectedPractitioner!.id,
             treatmentId: treatment.id,
             startsAt: selectedSlot!.startsAt,
@@ -143,7 +261,7 @@ export default function BookingPage() {
     },
     onSuccess: () => {
       setStep("treatment");
-      router.push("/?booked=1");
+      router.push("/my-dashboard?booked=1");
     },
   });
 
@@ -165,13 +283,11 @@ export default function BookingPage() {
   const practitioners = practitionersData?.practitioners ?? [];
   const slots = slotsData?.slots ?? [];
 
-  // Group by category
   const categories = useMemo(() => {
     const cats = [...new Set(treatments.map((t) => t.category ?? "Other"))];
     return cats.sort();
   }, [treatments]);
 
-  // Treatments in the selected category
   const categoryTreatments = useMemo(() => {
     if (!selectedCategory) return [];
     return treatments.filter((t) => (t.category ?? "Other") === selectedCategory);
@@ -204,12 +320,21 @@ export default function BookingPage() {
 
   const currentStepIndex = steps.findIndex((s) => s.key === step);
 
-  const dateOptions = Array.from({ length: 14 }, (_, i) => {
-    const d = addDays(new Date(), i);
-    return { value: format(d, "yyyy-MM-dd"), label: format(d, "EEE d MMM") };
-  });
-
+  // Validation
+  const nameError = submitAttempted && !guestName.trim() ? "Full name is required" : "";
+  const emailError = submitAttempted && !guestEmail.trim() ? "Email address is required" : "";
+  const phoneError = submitAttempted && !guestPhone.trim() ? "Phone number is required" : "";
   const canConfirm = guestName.trim() && guestEmail.trim() && guestPhone.trim();
+
+  const handleConfirmBooking = () => {
+    setSubmitAttempted(true);
+    if (!isLoggedIn) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (!canConfirm) return;
+    bookMutation.mutate();
+  };
 
   return (
     <div className="min-h-screen bg-[var(--muted)]">
@@ -222,17 +347,11 @@ export default function BookingPage() {
           <div className="flex items-center gap-3">
             <h1 className="text-base font-semibold">Book an Appointment</h1>
             {isLoggedIn ? (
-              <Link
-                href="/my-dashboard"
-                className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-              >
+              <Link href="/my-dashboard" className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
                 My Account
               </Link>
             ) : (
-              <Link
-                href="/login"
-                className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-              >
+              <Link href="/login" className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
                 Log In
               </Link>
             )}
@@ -272,21 +391,17 @@ export default function BookingPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6">
-        {/* Step 1: Treatments */}
+        {/* Step 1: Category */}
         {step === "treatment" && !selectedCategory && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Choose a category</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {categories.map((cat) => {
-                const catTreatments = treatments.filter(
-                  (t) => (t.category ?? "Other") === cat
-                );
+                const catTreatments = treatments.filter((t) => (t.category ?? "Other") === cat);
                 const prices = catTreatments.map((t) => t.priceCents);
                 const minPrice = Math.min(...prices);
                 const maxPrice = Math.max(...prices);
-                const selectedInCat = catTreatments.filter((t) =>
-                  isSelected(t.id)
-                ).length;
+                const selectedInCat = catTreatments.filter((t) => isSelected(t.id)).length;
 
                 return (
                   <button
@@ -322,7 +437,7 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* Step 1b: Treatments in selected category */}
+        {/* Step 1b: Treatments in category */}
         {step === "treatment" && selectedCategory && (
           <div className="space-y-4">
             <button
@@ -340,9 +455,7 @@ export default function BookingPage() {
                   onClick={() => toggleTreatment(t)}
                   className={clsx(
                     "w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors border-b border-[var(--border)] last:border-b-0",
-                    isSelected(t.id)
-                      ? "bg-[var(--accent)]"
-                      : "hover:bg-[var(--muted)]"
+                    isSelected(t.id) ? "bg-[var(--accent)]" : "hover:bg-[var(--muted)]"
                   )}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -363,18 +476,13 @@ export default function BookingPage() {
                       </p>
                     </div>
                   </div>
-                  <p className="text-sm font-bold shrink-0 ml-2">
-                    &pound;{formatPrice(t.priceCents)}
-                  </p>
+                  <p className="text-sm font-bold shrink-0 ml-2">&pound;{formatPrice(t.priceCents)}</p>
                 </button>
               ))}
             </div>
 
             <div className="flex justify-end">
-              <Button
-                variant="secondary"
-                onClick={() => setSelectedCategory(null)}
-              >
+              <Button variant="secondary" onClick={() => setSelectedCategory(null)}>
                 Done <Check className="h-4 w-4 ml-1" />
               </Button>
             </div>
@@ -394,23 +502,15 @@ export default function BookingPage() {
               >
                 <div onClick={() => setSelectedPractitioner(p)} className="flex items-start gap-4">
                   <div className="h-12 w-12 rounded-full bg-[var(--primary)] flex items-center justify-center text-white font-bold">
-                    {p.firstName[0]}
-                    {p.lastName[0]}
+                    {p.firstName[0]}{p.lastName[0]}
                   </div>
                   <div>
-                    <p className="font-medium">
-                      {p.firstName} {p.lastName}
-                    </p>
-                    {p.bio && (
-                      <p className="text-sm text-[var(--muted-foreground)] mt-1">{p.bio}</p>
-                    )}
+                    <p className="font-medium">{p.firstName} {p.lastName}</p>
+                    {p.bio && <p className="text-sm text-[var(--muted-foreground)] mt-1">{p.bio}</p>}
                     {p.specialties.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {p.specialties.map((s) => (
-                          <span
-                            key={s}
-                            className="rounded-full bg-[var(--accent)] px-2.5 py-0.5 text-xs text-[var(--primary)]"
-                          >
+                          <span key={s} className="rounded-full bg-[var(--accent)] px-2.5 py-0.5 text-xs text-[var(--primary)]">
                             {s}
                           </span>
                         ))}
@@ -431,37 +531,26 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* Step 3: Date & Time */}
+        {/* Step 3: Date & Time — calendar picker */}
         {step === "datetime" && (
           <div className="space-y-4">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {dateOptions.map((d) => (
-                <button
-                  key={d.value}
-                  onClick={() => {
-                    setSelectedDate(d.value);
-                    setSelectedSlot(null);
-                  }}
-                  className={clsx(
-                    "flex-shrink-0 rounded-lg border px-4 py-2 text-sm transition-colors",
-                    selectedDate === d.value
-                      ? "border-[var(--primary)] bg-[var(--accent)] text-[var(--primary)] font-medium"
-                      : "border-[var(--border)] hover:border-[var(--primary)]"
-                  )}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
+            <CalendarPicker
+              selected={selectedDate}
+              onSelect={(d) => {
+                setSelectedDate(d);
+                setSelectedSlot(null);
+              }}
+            />
 
             <Card>
-              <h3 className="font-medium mb-3">Available Times</h3>
+              <h3 className="font-medium mb-3">
+                Available Times —{" "}
+                <span className="text-[var(--primary)]">{format(new Date(selectedDate + "T00:00:00"), "EEEE d MMMM")}</span>
+              </h3>
               {slotsLoading ? (
                 <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
               ) : slots.length === 0 ? (
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  No available slots on this date
-                </p>
+                <p className="text-sm text-[var(--muted-foreground)]">No available slots on this date</p>
               ) : (
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {slots.map((slot) => (
@@ -506,30 +595,56 @@ export default function BookingPage() {
           <div className="space-y-4">
             {/* Your Details */}
             <Card>
-              <h3 className="font-semibold mb-4">Your Details</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Your Details</h3>
+                {isLoggedIn && (
+                  <span className="text-xs text-green-600 bg-green-50 rounded-full px-2.5 py-0.5">
+                    ✓ Pre-filled from your account
+                  </span>
+                )}
+              </div>
+              {!isLoggedIn && (
+                <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">⚠</span>
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">You're not logged in</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      <button onClick={() => setShowAuthModal(true)} className="underline font-medium">Create an account</button> or{" "}
+                      <Link href={`/login?redirect=/book`} className="underline font-medium">log in</Link> to complete your booking.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="space-y-3">
                 <Input
                   id="name"
-                  label="Full Name"
+                  label="Full Name *"
                   placeholder="Jane Smith"
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
+                  error={nameError}
+                  readOnly={isLoggedIn}
+                  className={isLoggedIn ? "bg-[var(--muted)]" : ""}
                 />
                 <Input
                   id="email"
-                  label="Email"
+                  label="Email *"
                   type="email"
                   placeholder="jane@example.com"
                   value={guestEmail}
                   onChange={(e) => setGuestEmail(e.target.value)}
+                  error={emailError}
+                  readOnly={isLoggedIn}
+                  className={isLoggedIn ? "bg-[var(--muted)]" : ""}
                 />
                 <Input
                   id="phone"
-                  label="Phone Number"
+                  label="Phone Number *"
                   type="tel"
                   placeholder="07700 900000"
                   value={guestPhone}
                   onChange={(e) => setGuestPhone(e.target.value)}
+                  error={phoneError}
                 />
               </div>
             </Card>
@@ -541,46 +656,36 @@ export default function BookingPage() {
                 {selectedTreatments.map((t) => (
                   <div key={t.id} className="flex justify-between">
                     <span className="text-[var(--muted-foreground)]">{t.name}</span>
-                    <span className="font-medium">
-                      &pound;{(t.priceCents / 100).toFixed(0)}
-                    </span>
+                    <span className="font-medium">&pound;{(t.priceCents / 100).toFixed(0)}</span>
                   </div>
                 ))}
                 <div className="flex justify-between">
                   <span className="text-[var(--muted-foreground)]">Practitioner</span>
-                  <span className="font-medium">
-                    {selectedPractitioner.firstName} {selectedPractitioner.lastName}
-                  </span>
+                  <span className="font-medium">{selectedPractitioner.firstName} {selectedPractitioner.lastName}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted-foreground)]">Date</span>
-                  <span className="font-medium">
-                    {format(new Date(selectedSlot.startsAt), "EEEE, d MMMM yyyy")}
-                  </span>
+                  <span className="font-medium">{format(new Date(selectedSlot.startsAt), "EEEE, d MMMM yyyy")}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted-foreground)]">Time</span>
                   <span className="font-medium">
-                    {format(new Date(selectedSlot.startsAt), "HH:mm")} -{" "}
-                    {format(new Date(selectedSlot.endsAt), "HH:mm")}
+                    {format(new Date(selectedSlot.startsAt), "HH:mm")} – {format(new Date(selectedSlot.endsAt), "HH:mm")}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted-foreground)]">Total Duration</span>
                   <span className="font-medium">{totalDuration} minutes</span>
                 </div>
-                {/* Promo code */}
+
+                {/* Promo */}
                 <div className="flex gap-2">
                   <input
                     type="text"
                     placeholder="Promo code"
                     className="flex-1 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm uppercase focus:border-[var(--primary)] focus:outline-none"
                     value={promoCode}
-                    onChange={(e) => {
-                      setPromoCode(e.target.value.toUpperCase());
-                      setPromoResult(null);
-                      setPromoError("");
-                    }}
+                    onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoResult(null); setPromoError(""); }}
                   />
                   <button
                     onClick={validatePromo}
@@ -601,9 +706,7 @@ export default function BookingPage() {
                 {promoResult && (
                   <div className="flex justify-between text-sm text-[var(--muted-foreground)]">
                     <span>Discount</span>
-                    <span className="text-green-600 font-medium">
-                      -&pound;{((totalPrice - discountedTotal) / 100).toFixed(2)}
-                    </span>
+                    <span className="text-green-600 font-medium">-&pound;{((totalPrice - discountedTotal) / 100).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-base">
@@ -635,8 +738,8 @@ export default function BookingPage() {
                 <ArrowLeft className="h-4 w-4 mr-1" /> Back
               </Button>
               <Button
-                disabled={!canConfirm || bookMutation.isPending}
-                onClick={() => bookMutation.mutate()}
+                disabled={bookMutation.isPending}
+                onClick={handleConfirmBooking}
                 size="lg"
               >
                 {bookMutation.isPending ? "Booking..." : "Confirm Booking"}
@@ -645,15 +748,14 @@ export default function BookingPage() {
 
             {bookMutation.isError && (
               <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                {(bookMutation.error as { response?: { data?: { error?: string } } })?.response
-                  ?.data?.error ?? "Booking failed. Please try again."}
+                {(bookMutation.error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Booking failed. Please try again."}
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Sticky cart bar */}
+      {/* Sticky cart */}
       {step === "treatment" && selectedTreatments.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] shadow-lg z-10">
           <div className="max-w-3xl mx-auto px-4 py-3">
@@ -670,30 +772,45 @@ export default function BookingPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSelectedTreatments([])}
-                  className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                >
+                <button onClick={() => setSelectedTreatments([])} className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
                   Clear
                 </button>
                 <Button
                   size="sm"
                   onClick={() => {
-                    if (selectedCategory) {
-                      setSelectedCategory(null);
-                    } else {
-                      setStep("practitioner");
-                    }
+                    if (selectedCategory) setSelectedCategory(null);
+                    else setStep("practitioner");
                   }}
                 >
-                  {selectedCategory ? "Done" : "Continue"}{" "}
-                  <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                  {selectedCategory ? "Done" : "Continue"} <ArrowRight className="h-3.5 w-3.5 ml-1" />
                 </Button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Auth required modal */}
+      <Modal open={showAuthModal} onClose={() => setShowAuthModal(false)} title="Account required to book">
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--muted-foreground)]">
+            To complete your booking, you need an account. It only takes a minute to create one, and you'll be able to manage all your appointments in one place.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/register?redirect=/book">
+              <Button className="w-full">
+                <UserPlus className="h-4 w-4 mr-2" /> Create Account
+              </Button>
+            </Link>
+            <Link href="/login?redirect=/book">
+              <Button variant="secondary" className="w-full">
+                <LogIn className="h-4 w-4 mr-2" /> Log In
+              </Button>
+            </Link>
+          </div>
+          <p className="text-xs text-center text-[var(--muted-foreground)]">Your treatment selection will be remembered.</p>
+        </div>
+      </Modal>
     </div>
   );
 }

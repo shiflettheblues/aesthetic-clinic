@@ -57,7 +57,16 @@ export async function appointmentRoutes(app: FastifyInstance) {
     const appointments = await prisma.appointment.findMany({
       where,
       include: {
-        client: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+        client: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            consentForms: { select: { id: true }, take: 1 },
+          },
+        },
         practitioner: { select: { id: true, firstName: true, lastName: true } },
         treatment: { select: { id: true, name: true, durationMinutes: true, priceCents: true } },
       },
