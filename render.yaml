@@ -1,0 +1,36 @@
+databases:
+  - name: aesthetic-clinic-db
+    plan: free
+    databaseName: aesthetic_clinic
+
+services:
+  - type: redis
+    name: aesthetic-clinic-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+
+  - type: web
+    name: aesthetic-clinic-api
+    plan: free
+    runtime: docker
+    rootDir: apps/api
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aesthetic-clinic-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: aesthetic-clinic-redis
+          type: redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://web-five-weld-39.vercel.app
+      - key: PORT
+        value: 3001
