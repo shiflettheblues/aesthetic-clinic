@@ -112,6 +112,46 @@ When an appointment is marked COMPLETED, the system automatically:
 | Overdue patients | /reports/marketing/overdue | Decreasing trend |
 | SMS campaign response | /reports/sms | >5% conversion |
 
+## Python Tools (WAT Framework)
+
+These tools in `tools/` automate the manual steps above. They connect directly to PostgreSQL.
+
+**Setup:**
+```bash
+pip install -r tools/requirements.txt
+# Add DATABASE_URL to .env in the project root (Render PostgreSQL connection string)
+```
+
+**Find patients:**
+```bash
+# Overdue patients (>90 days since last visit)
+python tools/find_overdue_patients.py --days 90
+
+# Non-returning patients (seen Jan-Feb, no future booking)
+python tools/find_non_returning_patients.py --from 2026-01-01 --to 2026-02-28
+
+# Birthday patients (April birthdays)
+python tools/find_birthday_patients.py --month 4
+
+# Absent patients (no visits since Dec 2025)
+python tools/find_absent_patients.py --since 2025-12-01
+```
+
+**Generate campaign CSV:**
+```bash
+python tools/generate_campaign_list.py --type overdue --days 60 --output .tmp/campaign.csv
+python tools/generate_campaign_list.py --type birthday --month 4 --output .tmp/birthday.csv
+```
+
+**Send SMS campaign:**
+```bash
+# Preview first (dry run)
+python tools/send_sms_campaign.py --csv .tmp/campaign.csv --message "Hi {name}, we miss you! Book now and get 10% off." --dry-run
+
+# Send for real (requires TWILIO_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM in .env)
+python tools/send_sms_campaign.py --csv .tmp/campaign.csv --message "Hi {name}, we miss you! Book now and get 10% off."
+```
+
 ## Related Workflows
 - [Appointment Day](appointment-day.md) — triggers the follow-up flow
 - [Appointment Booking](appointment-booking.md) — where rebooking happens
