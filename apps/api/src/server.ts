@@ -28,6 +28,7 @@ import { waitlistRoutes } from "./routes/waitlist.js";
 import { sopTemplateRoutes } from "./routes/sop-templates.js";
 import { closedDateRoutes } from "./routes/closed-dates.js";
 import { faceMapRoutes } from "./routes/face-maps.js";
+import { dashboardRoutes } from "./routes/dashboard.js";
 
 const app = Fastify({ logger: true });
 
@@ -73,6 +74,7 @@ await app.register(waitlistRoutes);
 await app.register(sopTemplateRoutes);
 await app.register(closedDateRoutes);
 await app.register(faceMapRoutes);
+await app.register(dashboardRoutes);
 
 // Start
 const port = Number(process.env.PORT) || 3001;

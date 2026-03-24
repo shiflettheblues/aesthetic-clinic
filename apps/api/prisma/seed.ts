@@ -3,10 +3,30 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// Helpers
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+function randomDate(from: Date, to: Date): Date {
+  return new Date(from.getTime() + Math.random() * (to.getTime() - from.getTime()));
+}
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 86400000);
+}
+function setTime(date: Date, hours: number, minutes: number): Date {
+  const d = new Date(date);
+  d.setHours(hours, minutes, 0, 0);
+  return d;
+}
+
 async function main() {
   console.log("Seeding database...");
 
-  // Create admin user
+  // ==================== USERS ====================
+
   const adminPassword = await bcrypt.hash("admin123", 12);
   const admin = await prisma.user.upsert({
     where: { email: "admin@clinic.com" },
@@ -21,7 +41,6 @@ async function main() {
   });
   console.log(`Admin created: ${admin.email}`);
 
-  // Create practitioners
   const practitionerPassword = await bcrypt.hash("practitioner123", 12);
 
   const practitioner1 = await prisma.user.upsert({
@@ -60,22 +79,64 @@ async function main() {
   });
   console.log(`Practitioner created: ${practitioner2.email}`);
 
-  // Create test client
-  const clientPassword = await bcrypt.hash("client123", 12);
-  const client = await prisma.user.upsert({
-    where: { email: "client@clinic.com" },
-    update: {},
-    create: {
-      email: "client@clinic.com",
-      passwordHash: clientPassword,
-      firstName: "Test",
-      lastName: "Client",
-      role: "CLIENT",
-    },
-  });
-  console.log(`Client created: ${client.email}`);
+  const practitioners = [practitioner1, practitioner2];
 
-  // Seed all Dr Skin Central treatments
+  // Create 25 test clients
+  const clientPassword = await bcrypt.hash("client123", 12);
+  const clientData = [
+    { firstName: "Emma", lastName: "Thompson", email: "emma.thompson@gmail.com", phone: "+447700100001", dob: "1988-03-15" },
+    { firstName: "Olivia", lastName: "Brown", email: "olivia.brown@gmail.com", phone: "+447700100002", dob: "1992-07-22" },
+    { firstName: "Sophia", lastName: "Wilson", email: "sophia.wilson@gmail.com", phone: "+447700100003", dob: "1985-11-08" },
+    { firstName: "Isabella", lastName: "Taylor", email: "isabella.taylor@gmail.com", phone: "+447700100004", dob: "1990-01-30" },
+    { firstName: "Mia", lastName: "Davies", email: "mia.davies@gmail.com", phone: "+447700100005", dob: "1995-06-12" },
+    { firstName: "Charlotte", lastName: "Evans", email: "charlotte.evans@gmail.com", phone: "+447700100006", dob: "1987-09-25" },
+    { firstName: "Amelia", lastName: "Thomas", email: "amelia.thomas@gmail.com", phone: "+447700100007", dob: "1993-04-18" },
+    { firstName: "Harper", lastName: "Roberts", email: "harper.roberts@gmail.com", phone: "+447700100008", dob: "1991-12-03" },
+    { firstName: "Evelyn", lastName: "Walker", email: "evelyn.walker@gmail.com", phone: "+447700100009", dob: "1986-08-20" },
+    { firstName: "Abigail", lastName: "Wright", email: "abigail.wright@gmail.com", phone: "+447700100010", dob: "1994-02-14" },
+    { firstName: "Grace", lastName: "Hall", email: "grace.hall@gmail.com", phone: "+447700100011", dob: "1989-10-07" },
+    { firstName: "Lily", lastName: "Green", email: "lily.green@gmail.com", phone: "+447700100012", dob: "1996-05-29" },
+    { firstName: "Chloe", lastName: "Adams", email: "chloe.adams@gmail.com", phone: "+447700100013", dob: "1984-07-11" },
+    { firstName: "Ella", lastName: "Mitchell", email: "ella.mitchell@gmail.com", phone: "+447700100014", dob: "1997-03-24" },
+    { firstName: "Zoe", lastName: "Campbell", email: "zoe.campbell@gmail.com", phone: "+447700100015", dob: "1990-11-16" },
+    { firstName: "Hannah", lastName: "Phillips", email: "hannah.phillips@gmail.com", phone: "+447700100016", dob: "1988-01-09" },
+    { firstName: "Lucy", lastName: "Parker", email: "lucy.parker@gmail.com", phone: "+447700100017", dob: "1993-08-31" },
+    { firstName: "Ruby", lastName: "Hughes", email: "ruby.hughes@gmail.com", phone: "+447700100018", dob: "1991-06-05" },
+    { firstName: "Daisy", lastName: "Scott", email: "daisy.scott@gmail.com", phone: "+447700100019", dob: "1986-12-28" },
+    { firstName: "Poppy", lastName: "Russell", email: "poppy.russell@gmail.com", phone: "+447700100020", dob: "1995-09-13" },
+    { firstName: "Jasmine", lastName: "Cooper", email: "jasmine.cooper@gmail.com", phone: "+447700100021", dob: "1987-04-06" },
+    { firstName: "Freya", lastName: "Bailey", email: "freya.bailey@gmail.com", phone: "+447700100022", dob: "1992-10-19" },
+    { firstName: "Isla", lastName: "Reed", email: "isla.reed@gmail.com", phone: "+447700100023", dob: "1994-07-02" },
+    { firstName: "Willow", lastName: "Cook", email: "willow.cook@gmail.com", phone: "+447700100024", dob: "1989-02-26" },
+    { firstName: "Ivy", lastName: "Morgan", email: "ivy.morgan@gmail.com", phone: "+447700100025", dob: "1996-11-14" },
+  ];
+
+  const clients = [];
+  for (const c of clientData) {
+    const client = await prisma.user.upsert({
+      where: { email: c.email },
+      update: {},
+      create: {
+        email: c.email,
+        passwordHash: clientPassword,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        role: "CLIENT",
+        phone: c.phone,
+        dateOfBirth: new Date(c.dob),
+        intakeFormCompleted: Math.random() > 0.3,
+      },
+    });
+    clients.push(client);
+  }
+  console.log(`${clients.length} clients seeded`);
+
+  // Archive 2 clients
+  await prisma.user.update({ where: { id: clients[23].id }, data: { isArchived: true } });
+  await prisma.user.update({ where: { id: clients[24].id }, data: { isArchived: true } });
+
+  // ==================== TREATMENTS ====================
+
   const treatmentData: {
     id: string;
     name: string;
@@ -84,10 +145,7 @@ async function main() {
     priceCents: number;
     category: string;
   }[] = [
-    // Consultation
     { id: "consultation", name: "Consultation", description: "Acne rosacea, melasma, intimate hyperpigmentation, skin lumps, rejuvenation, psoriasis, post surgical scarring.", durationMinutes: 30, priceCents: 3000, category: "Consultation" },
-
-    // Anti-Wrinkles
     { id: "aw-small", name: "Anti-Wrinkle — Small Area", description: "Bunny lines, dimpled chin, gummy smile, lip flip.", durationMinutes: 15, priceCents: 10000, category: "Anti-Wrinkles" },
     { id: "aw-1area", name: "Anti-Wrinkle — 1 Area", description: "Single area anti-wrinkle treatment.", durationMinutes: 20, priceCents: 18000, category: "Anti-Wrinkles" },
     { id: "aw-2areas", name: "Anti-Wrinkle — 2 Areas", description: "Two area anti-wrinkle treatment.", durationMinutes: 30, priceCents: 20000, category: "Anti-Wrinkles" },
@@ -99,149 +157,412 @@ async function main() {
     { id: "aw-sweating", name: "Excessive Sweating", description: "Treatment for hyperhidrosis / excessive sweating.", durationMinutes: 30, priceCents: 35000, category: "Anti-Wrinkles" },
     { id: "aw-neck", name: "Neck Platysmal Bands", description: "Neck platysmal bands treatment.", durationMinutes: 20, priceCents: 22000, category: "Anti-Wrinkles" },
     { id: "aw-traptox", name: "Traptox", description: "Trapezius toxin treatment for shoulder slimming.", durationMinutes: 30, priceCents: 35000, category: "Anti-Wrinkles" },
-
-    // Dermal Fillers
     { id: "df-055-smile", name: "0.55ml Juvéderm Ultra Smile", description: "Subtle lip enhancement with Juvéderm Ultra Smile.", durationMinutes: 30, priceCents: 16000, category: "Dermal Fillers" },
-    { id: "df-05-lip", name: "0.5ml Premium Lip Filler", description: "Premium lip filler for natural enhancement.", durationMinutes: 30, priceCents: 16000, category: "Dermal Fillers" },
+    { id: "df-1-lip", name: "1.0ml Lip Enhancement", description: "Full lip enhancement treatment.", durationMinutes: 30, priceCents: 23000, category: "Dermal Fillers" },
     { id: "df-1-cheek", name: "1.0ml Cheek Enhancement", description: "Cheek augmentation and contouring.", durationMinutes: 45, priceCents: 23000, category: "Dermal Fillers" },
     { id: "df-1-chin-jaw", name: "1.0ml Chin/Jaw Premium Filler", description: "Chin and jawline definition.", durationMinutes: 45, priceCents: 30000, category: "Dermal Fillers" },
-    { id: "df-1-lip", name: "1.0ml Lip Enhancement", description: "Full lip enhancement treatment.", durationMinutes: 30, priceCents: 23000, category: "Dermal Fillers" },
-    { id: "df-1-dermal", name: "1.0ml Dermal Filler", description: "1ml dermal filler treatment.", durationMinutes: 30, priceCents: 23000, category: "Dermal Fillers" },
-    { id: "df-2-dermal", name: "2.0ml Dermal Filler", description: "2ml dermal filler treatment.", durationMinutes: 45, priceCents: 35000, category: "Dermal Fillers" },
-    { id: "df-3-dermal", name: "3.0ml Dermal Filler", description: "3ml dermal filler treatment.", durationMinutes: 60, priceCents: 55000, category: "Dermal Fillers" },
-    { id: "df-4-dermal", name: "4.0ml Dermal Filler", description: "4ml dermal filler treatment.", durationMinutes: 60, priceCents: 75000, category: "Dermal Fillers" },
-    { id: "df-5-dermal", name: "5.0ml Dermal Filler", description: "5ml dermal filler treatment.", durationMinutes: 75, priceCents: 90000, category: "Dermal Fillers" },
     { id: "df-nose", name: "Nose Filler", description: "Non-surgical nose reshaping.", durationMinutes: 30, priceCents: 35000, category: "Dermal Fillers" },
     { id: "df-teartrough", name: "Teartrough Filler", description: "Under-eye teartrough filler treatment.", durationMinutes: 30, priceCents: 30000, category: "Dermal Fillers" },
-
-    // Filler Dissolving
-    { id: "fd-1area", name: "Filler Dissolving — 1 Area", description: "Hyaluronidase injection to dissolve filler in one area.", durationMinutes: 30, priceCents: 15000, category: "Filler Dissolving" },
-    { id: "fd-2areas", name: "Filler Dissolving — 2 Areas", description: "Hyaluronidase injection to dissolve filler in two areas.", durationMinutes: 45, priceCents: 25000, category: "Filler Dissolving" },
-
-    // Skin Boosters & Polynucleotides
-    { id: "sb-sunekos200", name: "Sunekos 200 — Face or Neck", description: "Sunekos 200 skin booster for face or neck rejuvenation.", durationMinutes: 30, priceCents: 20000, category: "Skin Boosters & Polynucleotides" },
-    { id: "sb-sunekos1200", name: "Sunekos 1200", description: "Sunekos 1200 advanced skin booster.", durationMinutes: 30, priceCents: 25000, category: "Skin Boosters & Polynucleotides" },
-    { id: "sb-poly-boosters", name: "Polynucleotide Skin Boosters", description: "Polynucleotide-based skin rejuvenation treatment.", durationMinutes: 30, priceCents: 20000, category: "Skin Boosters & Polynucleotides" },
     { id: "sb-profhilo-face", name: "Profhilo — Face", description: "Profhilo bio-remodelling for facial rejuvenation.", durationMinutes: 30, priceCents: 25000, category: "Skin Boosters & Polynucleotides" },
-    { id: "sb-profhilo-neck", name: "Profhilo — Neck", description: "Profhilo bio-remodelling for neck rejuvenation.", durationMinutes: 30, priceCents: 25000, category: "Skin Boosters & Polynucleotides" },
-    { id: "sb-profhilo-face-neck", name: "Profhilo — Face & Neck", description: "Profhilo bio-remodelling for face and neck.", durationMinutes: 45, priceCents: 45000, category: "Skin Boosters & Polynucleotides" },
-    { id: "sb-profhilo-body", name: "Profhilo — Body Rejuvenation", description: "Profhilo bio-remodelling for body areas.", durationMinutes: 45, priceCents: 50000, category: "Skin Boosters & Polynucleotides" },
-    { id: "sb-poly-eyes", name: "Polynucleotide Eyes", description: "Polynucleotide treatment for the eye area.", durationMinutes: 20, priceCents: 15000, category: "Skin Boosters & Polynucleotides" },
-
-    // PRP
-    { id: "prp-facial", name: "PRP Facial", description: "Platelet rich plasma facial rejuvenation.", durationMinutes: 45, priceCents: 20000, category: "Platelet Rich Plasma Therapy" },
-    { id: "prp-micro", name: "PRP Therapy + Microneedling", description: "Combined PRP and microneedling treatment.", durationMinutes: 60, priceCents: 25000, category: "Platelet Rich Plasma Therapy" },
-    { id: "prp-hair", name: "PRP for Hair Thinning", description: "PRP treatment for hair loss and thinning.", durationMinutes: 45, priceCents: 20000, category: "Platelet Rich Plasma Therapy" },
-
-    // Fat Reduction Injections
-    { id: "fat-1area", name: "Fat Reduction — 1 Area", description: "Aqualyx fat dissolving injection — single area.", durationMinutes: 30, priceCents: 6000, category: "Fat Reduction Injections" },
-    { id: "fat-2areas", name: "Fat Reduction — 2 Areas", description: "Aqualyx fat dissolving injection — two areas.", durationMinutes: 45, priceCents: 11000, category: "Fat Reduction Injections" },
-    { id: "fat-3areas", name: "Fat Reduction — 3 Areas", description: "Aqualyx fat dissolving injection — three areas.", durationMinutes: 60, priceCents: 16000, category: "Fat Reduction Injections" },
-    { id: "fat-4areas", name: "Fat Reduction — 4 Areas", description: "Aqualyx fat dissolving injection — four areas.", durationMinutes: 60, priceCents: 20000, category: "Fat Reduction Injections" },
-
-    // IV & IM Treatments
-    { id: "iv-brightening", name: "IV Skin Brightening", description: "Glutathione and Vitamin C IV drip for skin brightening.", durationMinutes: 45, priceCents: 15000, category: "IV & IM Treatments" },
-    { id: "iv-immunity", name: "IV Immunity Boost", description: "Immune-boosting IV drip with vitamins and minerals.", durationMinutes: 45, priceCents: 15000, category: "IV & IM Treatments" },
-    { id: "iv-energy", name: "IV Energy Boost", description: "Energy-boosting IV drip.", durationMinutes: 45, priceCents: 20000, category: "IV & IM Treatments" },
-    { id: "im-b12", name: "IM Vitamin B12", description: "Intramuscular B12 injection.", durationMinutes: 15, priceCents: 8000, category: "IV & IM Treatments" },
-
-    // Microneedling
-    { id: "mn-face", name: "Microneedling — Face", description: "Microneedling facial treatment for skin rejuvenation.", durationMinutes: 45, priceCents: 15000, category: "Microneedling" },
-    { id: "mn-neck", name: "Microneedling — Neck", description: "Microneedling treatment for the neck.", durationMinutes: 45, priceCents: 15000, category: "Microneedling" },
-    { id: "mn-face-neck", name: "Microneedling — Face & Neck", description: "Combined face and neck microneedling treatment.", durationMinutes: 60, priceCents: 25000, category: "Microneedling" },
-    { id: "mn-body", name: "Microneedling — Body Area", description: "Microneedling treatment for body areas.", durationMinutes: 45, priceCents: 15000, category: "Microneedling" },
-
-    // Chemical Peels
-    { id: "cp-patch", name: "Chemical Peel Patch Test", description: "Complimentary patch test for chemical peels.", durationMinutes: 15, priceCents: 100, category: "Chemical Peel" },
-    { id: "cp-clinicare", name: "Clinicare Glow Peel", description: "Clinicare glow peel for radiant skin.", durationMinutes: 30, priceCents: 6000, category: "Chemical Peel" },
-    { id: "cp-cosmelan", name: "Cosmelan", description: "Advanced depigmentation treatment.", durationMinutes: 60, priceCents: 100000, category: "Chemical Peel" },
-    { id: "cp-mesopeel", name: "Mesoestetic Mesopeel", description: "Professional-grade chemical peel by Mesoestetic.", durationMinutes: 30, priceCents: 10000, category: "Chemical Peel" },
-    { id: "cp-perfect", name: "Perfect Peel", description: "The Perfect Peel for skin renewal.", durationMinutes: 30, priceCents: 25000, category: "Chemical Peel" },
-    { id: "cp-blemiderm", name: "Blemiderm", description: "Blemiderm peel for blemish-prone skin.", durationMinutes: 30, priceCents: 35000, category: "Chemical Peel" },
-
-    // Laser Hair Removal
-    { id: "lhr-patch", name: "Laser Patch Test", description: "Complimentary laser hair removal patch test.", durationMinutes: 15, priceCents: 0, category: "Laser Hair Removal" },
-    { id: "lhr-small", name: "Laser Hair Removal — Small Area", description: "Ears, glabella, nipples, upper lip, chin, sagittal trail, perianal area. (15 mins)", durationMinutes: 15, priceCents: 3000, category: "Laser Hair Removal" },
+    { id: "sb-sunekos200", name: "Sunekos 200 — Face or Neck", description: "Sunekos 200 skin booster.", durationMinutes: 30, priceCents: 20000, category: "Skin Boosters & Polynucleotides" },
     { id: "lhr-full-face", name: "Laser Hair Removal — Full Face", description: "Full face laser hair removal.", durationMinutes: 30, priceCents: 6000, category: "Laser Hair Removal" },
-    { id: "lhr-lip-chin", name: "Laser Hair Removal — Lip & Chin", description: "Lip and chin laser hair removal.", durationMinutes: 20, priceCents: 4000, category: "Laser Hair Removal" },
-    { id: "lhr-cheeks", name: "Laser Hair Removal — Cheeks", description: "Cheek area laser hair removal.", durationMinutes: 20, priceCents: 4000, category: "Laser Hair Removal" },
-    { id: "lhr-lower-face", name: "Laser Hair Removal — Lower Face", description: "Under chin laser hair removal.", durationMinutes: 20, priceCents: 4000, category: "Laser Hair Removal" },
-    { id: "lhr-neck", name: "Laser Hair Removal — Neck", description: "Neck laser hair removal.", durationMinutes: 20, priceCents: 6000, category: "Laser Hair Removal" },
-    { id: "lhr-upper-back-neck", name: "Laser Hair Removal — Upper Back & Neck", description: "Upper back and neck laser hair removal.", durationMinutes: 30, priceCents: 12000, category: "Laser Hair Removal" },
-    { id: "lhr-shoulders", name: "Laser Hair Removal — Shoulders", description: "Shoulder area laser hair removal.", durationMinutes: 20, priceCents: 8000, category: "Laser Hair Removal" },
-    { id: "lhr-abdomen", name: "Laser Hair Removal — Abdomen", description: "Abdomen laser hair removal.", durationMinutes: 20, priceCents: 4000, category: "Laser Hair Removal" },
-    { id: "lhr-chest-abdomen", name: "Laser Hair Removal — Chest & Abdomen", description: "Chest and abdomen laser hair removal.", durationMinutes: 30, priceCents: 13000, category: "Laser Hair Removal" },
-    { id: "lhr-back", name: "Laser Hair Removal — Back", description: "Full back laser hair removal.", durationMinutes: 30, priceCents: 10000, category: "Laser Hair Removal" },
-    { id: "lhr-buttocks", name: "Laser Hair Removal — Buttocks", description: "Buttocks laser hair removal.", durationMinutes: 20, priceCents: 6000, category: "Laser Hair Removal" },
-    { id: "lhr-back-buttocks", name: "Laser Hair Removal — Back & Buttocks", description: "Back and buttocks laser hair removal.", durationMinutes: 45, priceCents: 14000, category: "Laser Hair Removal" },
-    { id: "lhr-full-arms", name: "Laser Hair Removal — Full Arms & Underarms", description: "Full arms and underarms laser hair removal.", durationMinutes: 30, priceCents: 10000, category: "Laser Hair Removal" },
-    { id: "lhr-half-arms", name: "Laser Hair Removal — Half Arms", description: "Half arms laser hair removal.", durationMinutes: 20, priceCents: 8000, category: "Laser Hair Removal" },
-    { id: "lhr-hands", name: "Laser Hair Removal — Hands & Fingers", description: "Hands and fingers laser hair removal.", durationMinutes: 15, priceCents: 4000, category: "Laser Hair Removal" },
     { id: "lhr-underarms", name: "Laser Hair Removal — Underarms", description: "Underarms laser hair removal.", durationMinutes: 15, priceCents: 4000, category: "Laser Hair Removal" },
-    { id: "lhr-underarms-bikini", name: "Laser Hair Removal — Underarms & Bikini", description: "Underarms and bikini laser hair removal.", durationMinutes: 25, priceCents: 7500, category: "Laser Hair Removal" },
-    { id: "lhr-underarms-brazilian", name: "Laser Hair Removal — Underarms & Brazilian", description: "Underarms and Brazilian laser hair removal.", durationMinutes: 30, priceCents: 8000, category: "Laser Hair Removal" },
-    { id: "lhr-underarms-hollywood", name: "Laser Hair Removal — Underarms & Hollywood", description: "Underarms and Hollywood laser hair removal.", durationMinutes: 30, priceCents: 9000, category: "Laser Hair Removal" },
-    { id: "lhr-bikini", name: "Laser Hair Removal — Bikini", description: "Bikini line laser hair removal.", durationMinutes: 15, priceCents: 4000, category: "Laser Hair Removal" },
     { id: "lhr-brazilian", name: "Laser Hair Removal — Brazilian", description: "Brazilian laser hair removal.", durationMinutes: 20, priceCents: 5000, category: "Laser Hair Removal" },
-    { id: "lhr-hollywood", name: "Laser Hair Removal — Hollywood", description: "Hollywood laser hair removal.", durationMinutes: 20, priceCents: 6000, category: "Laser Hair Removal" },
-    { id: "lhr-full-leg", name: "Laser Hair Removal — Full Leg", description: "Full leg laser hair removal.", durationMinutes: 45, priceCents: 12000, category: "Laser Hair Removal" },
-    { id: "lhr-half-leg", name: "Laser Hair Removal — Half Leg", description: "Half leg laser hair removal.", durationMinutes: 30, priceCents: 8000, category: "Laser Hair Removal" },
-    { id: "lhr-inner-thigh", name: "Laser Hair Removal — Inner Thigh", description: "Inner thigh laser hair removal.", durationMinutes: 20, priceCents: 6000, category: "Laser Hair Removal" },
-    { id: "lhr-full-body-women", name: "Laser Hair Removal — Full Body (Women)", description: "Full body laser hair removal for women.", durationMinutes: 90, priceCents: 25000, category: "Laser Hair Removal" },
-    { id: "lhr-full-body-men", name: "Laser Hair Removal — Full Body (Men)", description: "Full body laser hair removal for men.", durationMinutes: 120, priceCents: 35000, category: "Laser Hair Removal" },
-
-    // Facials & LED
-    { id: "fc-relaxation", name: "Relaxation Facial", description: "Relaxing facial treatment.", durationMinutes: 45, priceCents: 4000, category: "Facials & LED" },
+    { id: "lhr-full-body-women", name: "Laser Hair Removal — Full Body (Women)", description: "Full body laser hair removal.", durationMinutes: 90, priceCents: 25000, category: "Laser Hair Removal" },
+    { id: "cp-perfect", name: "Perfect Peel", description: "The Perfect Peel for skin renewal.", durationMinutes: 30, priceCents: 25000, category: "Chemical Peel" },
+    { id: "mn-face", name: "Microneedling — Face", description: "Microneedling facial treatment.", durationMinutes: 45, priceCents: 15000, category: "Microneedling" },
+    { id: "iv-brightening", name: "IV Skin Brightening", description: "Glutathione and Vitamin C IV drip.", durationMinutes: 45, priceCents: 15000, category: "IV & IM Treatments" },
     { id: "fc-hydro", name: "Luxury Hydrofacial", description: "Luxury hydrodermabrasion facial.", durationMinutes: 60, priceCents: 8000, category: "Facials & LED" },
-    { id: "fc-dermalux", name: "Dermalux LED Photofacial", description: "LED light therapy photofacial.", durationMinutes: 30, priceCents: 4500, category: "Facials & LED" },
-    { id: "fc-dermalux-addon", name: "Dermalux LED — Add On", description: "Add Dermalux LED to any treatment.", durationMinutes: 15, priceCents: 2000, category: "Facials & LED" },
-
-    // Wellness
-    { id: "wl-earwax", name: "Earwax Microsuction", description: "Professional earwax removal by microsuction.", durationMinutes: 30, priceCents: 7000, category: "Wellness" },
-    { id: "wl-cryo-single", name: "Cryotherapy — Single Lesion", description: "Cryotherapy for mole, wart, or skin tag removal — single lesion.", durationMinutes: 15, priceCents: 6000, category: "Wellness" },
-    { id: "wl-cryo-two", name: "Cryotherapy — Two Lesions", description: "Cryotherapy for mole, wart, or skin tag removal — two lesions.", durationMinutes: 20, priceCents: 10000, category: "Wellness" },
-
-    // Body Treatments
-    { id: "bt-contouring", name: "Body Contouring", description: "Cellulite and fat reduction body contouring.", durationMinutes: 60, priceCents: 14900, category: "Body Treatment" },
-    { id: "bt-tighten-small", name: "Skin Tightening — Small Area", description: "Skin tightening treatment for small area.", durationMinutes: 30, priceCents: 8000, category: "Body Treatment" },
-    { id: "bt-tighten-large", name: "Skin Tightening — Large Area", description: "Skin tightening treatment for large area.", durationMinutes: 45, priceCents: 13000, category: "Body Treatment" },
-    { id: "bt-sculpting", name: "Muscle Sculpting", description: "Non-invasive muscle sculpting treatment.", durationMinutes: 30, priceCents: 8000, category: "Body Treatment" },
-    { id: "bt-cryo", name: "Cryotherapy (Body)", description: "Body cryotherapy treatment.", durationMinutes: 30, priceCents: 8000, category: "Body Treatment" },
-
-    // Laser Skin Treatment
-    { id: "ls-facial", name: "Laser Facials", description: "Laser facial rejuvenation treatment.", durationMinutes: 30, priceCents: 12000, category: "Laser Skin Treatment" },
-    { id: "ls-age-spot", name: "Solitary Age Spot", description: "Single age spot laser removal.", durationMinutes: 15, priceCents: 5000, category: "Laser Skin Treatment" },
-    { id: "ls-redness", name: "Diffuse Redness", description: "Laser treatment for diffuse redness and rosacea.", durationMinutes: 30, priceCents: 12000, category: "Laser Skin Treatment" },
-    { id: "ls-age-spots", name: "Diffuse Age Spots", description: "Laser treatment for multiple age spots.", durationMinutes: 30, priceCents: 15000, category: "Laser Skin Treatment" },
+    { id: "bt-contouring", name: "Body Contouring", description: "Cellulite and fat reduction.", durationMinutes: 60, priceCents: 14900, category: "Body Treatment" },
+    { id: "ls-facial", name: "Laser Facials", description: "Laser facial rejuvenation.", durationMinutes: 30, priceCents: 12000, category: "Laser Skin Treatment" },
   ];
 
-  let created = 0;
+  let treatmentCount = 0;
   for (const t of treatmentData) {
     await prisma.treatment.upsert({
       where: { id: t.id },
-      update: {
-        name: t.name,
-        description: t.description,
-        durationMinutes: t.durationMinutes,
-        priceCents: t.priceCents,
-        category: t.category,
-        isActive: true,
-      },
-      create: {
-        id: t.id,
-        name: t.name,
-        description: t.description,
-        durationMinutes: t.durationMinutes,
-        priceCents: t.priceCents,
-        category: t.category,
-        isActive: true,
+      update: { name: t.name, description: t.description, durationMinutes: t.durationMinutes, priceCents: t.priceCents, category: t.category, isActive: true },
+      create: { id: t.id, name: t.name, description: t.description, durationMinutes: t.durationMinutes, priceCents: t.priceCents, category: t.category, isActive: true },
+    });
+    treatmentCount++;
+  }
+  console.log(`${treatmentCount} treatments seeded`);
+
+  // Popular treatments for appointment generation
+  const popularTreatments = treatmentData.filter((t) =>
+    ["aw-3areas", "df-1-lip", "df-1-cheek", "sb-profhilo-face", "lhr-full-face", "lhr-underarms", "cp-perfect", "mn-face", "fc-hydro", "aw-1area", "df-055-smile", "iv-brightening", "consultation"].includes(t.id)
+  );
+
+  // ==================== SETTINGS ====================
+
+  const settings = [
+    { key: "clinic_name", value: "Dr Skin Central" },
+    { key: "clinic_phone", value: "+44 20 7946 0958" },
+    { key: "clinic_address", value: "42 Harley Street, London W1G 9PL" },
+    { key: "booking_deposit_percent", value: 50 },
+    { key: "cancellation_policy", value: "Cancellations must be made at least 24 hours before the appointment. Late cancellations or no-shows may forfeit the deposit." },
+  ];
+  for (const s of settings) {
+    await prisma.setting.upsert({
+      where: { key: s.key },
+      update: { value: s.value },
+      create: { key: s.key, value: s.value },
+    });
+  }
+  console.log(`${settings.length} settings seeded`);
+
+  // ==================== APPOINTMENTS ====================
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const appointmentRecords: { id: string; clientId: string; practitionerId: string; treatmentId: string; startsAt: Date; status: string; priceCents: number }[] = [];
+
+  // Delete existing seed appointments to avoid duplicates
+  await prisma.review.deleteMany({});
+  await prisma.payment.deleteMany({});
+  await prisma.appointment.deleteMany({});
+
+  // Past appointments (2-3 months ago) — all COMPLETED
+  for (let i = 0; i < 30; i++) {
+    const client = clients[i % 23]; // first 23 non-archived
+    const practitioner = pick(practitioners);
+    const treatment = pick(popularTreatments);
+    const date = randomDate(addDays(today, -90), addDays(today, -14));
+    const hour = randomInt(9, 16);
+    const startsAt = setTime(date, hour, pick([0, 15, 30, 45]));
+    const endsAt = new Date(startsAt.getTime() + treatment.durationMinutes * 60000);
+
+    const apt = await prisma.appointment.create({
+      data: {
+        clientId: client.id,
+        practitionerId: practitioner.id,
+        treatmentId: treatment.id,
+        startsAt,
+        endsAt,
+        status: "COMPLETED",
+        depositPaid: true,
+        depositAmountCents: Math.round(treatment.priceCents * 0.5),
       },
     });
-    created++;
+    appointmentRecords.push({ id: apt.id, clientId: client.id, practitionerId: practitioner.id, treatmentId: treatment.id, startsAt, status: "COMPLETED", priceCents: treatment.priceCents });
   }
-  console.log(`${created} treatments seeded`);
 
-  console.log("Seeding complete!");
+  // Recent appointments (past 2 weeks) — mixed statuses
+  const recentStatuses = ["COMPLETED", "COMPLETED", "COMPLETED", "COMPLETED", "COMPLETED", "CONFIRMED", "CANCELLED", "NO_SHOW"];
+  for (let i = 0; i < 25; i++) {
+    const client = clients[i % 23];
+    const practitioner = pick(practitioners);
+    const treatment = pick(popularTreatments);
+    const date = randomDate(addDays(today, -13), addDays(today, -1));
+    const hour = randomInt(9, 16);
+    const startsAt = setTime(date, hour, pick([0, 15, 30, 45]));
+    const endsAt = new Date(startsAt.getTime() + treatment.durationMinutes * 60000);
+    const status = pick(recentStatuses);
+
+    const apt = await prisma.appointment.create({
+      data: {
+        clientId: client.id,
+        practitionerId: practitioner.id,
+        treatmentId: treatment.id,
+        startsAt,
+        endsAt,
+        status,
+        depositPaid: status !== "CANCELLED",
+        depositAmountCents: Math.round(treatment.priceCents * 0.5),
+      },
+    });
+    appointmentRecords.push({ id: apt.id, clientId: client.id, practitionerId: practitioner.id, treatmentId: treatment.id, startsAt, status, priceCents: treatment.priceCents });
+  }
+
+  // Today's appointments
+  const todaySlots = [
+    { hour: 9, min: 0 }, { hour: 10, min: 0 }, { hour: 11, min: 30 },
+    { hour: 13, min: 0 }, { hour: 14, min: 30 }, { hour: 16, min: 0 },
+  ];
+  for (let i = 0; i < todaySlots.length; i++) {
+    const client = clients[i % 23];
+    const practitioner = practitioners[i % 2];
+    const treatment = pick(popularTreatments);
+    const startsAt = setTime(today, todaySlots[i].hour, todaySlots[i].min);
+    const endsAt = new Date(startsAt.getTime() + treatment.durationMinutes * 60000);
+    const status = startsAt < now ? "COMPLETED" : "CONFIRMED";
+
+    const apt = await prisma.appointment.create({
+      data: {
+        clientId: client.id,
+        practitionerId: practitioner.id,
+        treatmentId: treatment.id,
+        startsAt,
+        endsAt,
+        status,
+        depositPaid: true,
+        depositAmountCents: Math.round(treatment.priceCents * 0.5),
+      },
+    });
+    appointmentRecords.push({ id: apt.id, clientId: client.id, practitionerId: practitioner.id, treatmentId: treatment.id, startsAt, status, priceCents: treatment.priceCents });
+  }
+
+  // Future appointments (next 2 weeks)
+  for (let i = 0; i < 15; i++) {
+    const client = clients[i % 23];
+    const practitioner = pick(practitioners);
+    const treatment = pick(popularTreatments);
+    const date = randomDate(addDays(today, 1), addDays(today, 14));
+    const hour = randomInt(9, 16);
+    const startsAt = setTime(date, hour, pick([0, 15, 30, 45]));
+    const endsAt = new Date(startsAt.getTime() + treatment.durationMinutes * 60000);
+
+    const apt = await prisma.appointment.create({
+      data: {
+        clientId: client.id,
+        practitionerId: practitioner.id,
+        treatmentId: treatment.id,
+        startsAt,
+        endsAt,
+        status: "CONFIRMED",
+        depositPaid: true,
+        depositAmountCents: Math.round(treatment.priceCents * 0.5),
+      },
+    });
+    appointmentRecords.push({ id: apt.id, clientId: client.id, practitionerId: practitioner.id, treatmentId: treatment.id, startsAt, status: "CONFIRMED", priceCents: treatment.priceCents });
+  }
+
+  console.log(`${appointmentRecords.length} appointments seeded`);
+
+  // ==================== PAYMENTS ====================
+
+  const completedAppts = appointmentRecords.filter((a) => a.status === "COMPLETED");
+  let paymentCount = 0;
+  for (const apt of completedAppts) {
+    await prisma.payment.create({
+      data: {
+        appointmentId: apt.id,
+        clientId: apt.clientId,
+        amountCents: apt.priceCents,
+        status: "CAPTURED",
+        type: "DEPOSIT",
+        paymentMethod: Math.random() > 0.2 ? "STRIPE" : "CASH",
+      },
+    });
+    paymentCount++;
+  }
+  console.log(`${paymentCount} payments seeded`);
+
+  // ==================== STAFF TARGETS ====================
+
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+  for (const p of practitioners) {
+    await prisma.staffTarget.create({
+      data: { practitionerId: p.id, type: "REVENUE", amountCents: 1500000, period: "MONTHLY", startsAt: monthStart, endsAt: monthEnd },
+    });
+    await prisma.staffTarget.create({
+      data: { practitionerId: p.id, type: "APPOINTMENTS", appointmentCount: 40, period: "MONTHLY", startsAt: monthStart, endsAt: monthEnd },
+    });
+  }
+  console.log("4 staff targets seeded");
+
+  // ==================== REVIEWS ====================
+
+  const reviewComments = [
+    "Brilliant results, very natural looking!",
+    "Sarah was amazing, so gentle and professional.",
+    "Really happy with the outcome. Will definitely be back.",
+    "James explained everything clearly. Felt very comfortable.",
+    "Great experience from start to finish.",
+    "The clinic is lovely and the staff are wonderful.",
+    "Noticed a huge difference after just one session.",
+    "Best aesthetic treatment I've ever had.",
+    "Very thorough consultation before the procedure.",
+    "Exceeded my expectations. Highly recommend!",
+    "Good results but a bit bruised afterwards.",
+    "Professional and clean clinic. Felt safe throughout.",
+    "Already booked my next appointment!",
+    "The aftercare advice was really helpful.",
+    "Wonderful results, my friends keep asking what I've done!",
+  ];
+
+  let reviewCount = 0;
+  for (const apt of completedAppts.slice(0, 15)) {
+    try {
+      await prisma.review.create({
+        data: {
+          clientId: apt.clientId,
+          practitionerId: apt.practitionerId,
+          appointmentId: apt.id,
+          rating: pick([4, 4, 4, 5, 5, 5, 5, 3]),
+          comment: reviewComments[reviewCount % reviewComments.length],
+        },
+      });
+      reviewCount++;
+    } catch { /* skip duplicates */ }
+  }
+  console.log(`${reviewCount} reviews seeded`);
+
+  // ==================== LOYALTY POINTS ====================
+
+  let loyaltyCount = 0;
+  for (const apt of completedAppts) {
+    await prisma.loyaltyPoints.create({
+      data: { clientId: apt.clientId, points: 10, reason: "booking", reference: apt.id },
+    });
+    loyaltyCount++;
+  }
+  // Some redemptions
+  for (let i = 0; i < 5; i++) {
+    await prisma.loyaltyPoints.create({
+      data: { clientId: clients[i].id, points: -50, reason: "redemption" },
+    });
+    loyaltyCount++;
+  }
+  console.log(`${loyaltyCount} loyalty point records seeded`);
+
+  // ==================== REFERRALS ====================
+
+  const referralStatuses = ["completed", "completed", "completed", "pending", "pending"];
+  for (let i = 0; i < 5; i++) {
+    const referrer = clients[i];
+    const referred = clients[i + 10];
+    try {
+      await prisma.referral.create({
+        data: {
+          referrerId: referrer.id,
+          referredId: referred.id,
+          referralCode: `REF${referrer.firstName.toUpperCase().slice(0, 4)}${randomInt(1000, 9999)}`,
+          status: referralStatuses[i],
+          rewardPoints: referralStatuses[i] === "completed" ? 50 : 0,
+        },
+      });
+    } catch { /* skip duplicate codes */ }
+  }
+  console.log("5 referrals seeded");
+
+  // ==================== GIFT CARDS ====================
+
+  const giftCards = [
+    { code: "GIFT-ABCD-1234", balance: 0, original: 10000, purchaser: 0, redeemer: 5 },
+    { code: "GIFT-EFGH-5678", balance: 3500, original: 5000, purchaser: 2, redeemer: 8 },
+    { code: "GIFT-IJKL-9012", balance: 7500, original: 7500, purchaser: 4, redeemer: null },
+  ];
+  for (const gc of giftCards) {
+    try {
+      await prisma.giftCard.create({
+        data: {
+          code: gc.code,
+          balanceCents: gc.balance,
+          originalBalanceCents: gc.original,
+          purchasedByClientId: clients[gc.purchaser].id,
+          redeemedByClientId: gc.redeemer !== null ? clients[gc.redeemer].id : null,
+          expiresAt: addDays(now, 365),
+        },
+      });
+    } catch { /* skip duplicates */ }
+  }
+  console.log("3 gift cards seeded");
+
+  // ==================== PROMO CODES ====================
+
+  const promoCodes = [
+    { code: "WELCOME10", discountType: "percentage", discountValue: 10, maxUses: 100, validFrom: addDays(now, -30), validUntil: addDays(now, 60) },
+    { code: "SAVE20", discountType: "fixed", discountValue: 2000, maxUses: 50, validFrom: addDays(now, -7), validUntil: addDays(now, 30) },
+    { code: "SUMMER15", discountType: "percentage", discountValue: 15, maxUses: 30, validFrom: addDays(now, -90), validUntil: addDays(now, -30) },
+  ];
+  for (const pc of promoCodes) {
+    try {
+      await prisma.promoCode.create({
+        data: {
+          code: pc.code,
+          discountType: pc.discountType,
+          discountValue: pc.discountValue,
+          maxUses: pc.maxUses,
+          currentUses: pc.code === "SUMMER15" ? 28 : randomInt(0, 10),
+          validFrom: pc.validFrom,
+          validUntil: pc.validUntil,
+          isActive: pc.code !== "SUMMER15",
+        },
+      });
+    } catch { /* skip duplicates */ }
+  }
+  console.log("3 promo codes seeded");
+
+  // ==================== MEDICAL HISTORY ====================
+
+  const medHistories = [
+    { allergies: "Penicillin", medications: "None", conditions: "None" },
+    { allergies: "None known", medications: "Levothyroxine 50mcg", conditions: "Hypothyroidism" },
+    { allergies: "Latex", medications: "Cetirizine 10mg daily", conditions: "Hay fever, eczema" },
+    { allergies: "None", medications: "Metformin 500mg", conditions: "Type 2 diabetes" },
+    { allergies: "Ibuprofen", medications: "None", conditions: "None" },
+    { allergies: "None", medications: "Sertraline 50mg", conditions: "Anxiety" },
+    { allergies: "Shellfish", medications: "None", conditions: "Rosacea" },
+    { allergies: "None known", medications: "Amlodipine 5mg", conditions: "High blood pressure" },
+    { allergies: "None", medications: "Combined oral contraceptive", conditions: "None" },
+    { allergies: "Aspirin, codeine", medications: "Omeprazole 20mg", conditions: "Acid reflux" },
+  ];
+  for (let i = 0; i < 10; i++) {
+    await prisma.medicalHistory.upsert({
+      where: { clientId: clients[i].id },
+      update: {},
+      create: {
+        clientId: clients[i].id,
+        allergies: medHistories[i].allergies,
+        medications: medHistories[i].medications,
+        conditions: medHistories[i].conditions,
+      },
+    });
+  }
+  console.log("10 medical histories seeded");
+
+  // ==================== NOTIFICATIONS ====================
+
+  const notifTypes = [
+    { type: "BOOKING_CONFIRMED", title: "Appointment Confirmed", body: "Your appointment has been confirmed." },
+    { type: "PAYMENT_SUCCESS", title: "Payment Received", body: "Your payment has been processed successfully." },
+    { type: "NEW_BOOKING", title: "New Booking", body: "A new appointment has been booked." },
+    { type: "FOLLOW_UP", title: "How was your treatment?", body: "We hope you enjoyed your recent visit. Please leave a review!" },
+  ];
+  for (let i = 0; i < 15; i++) {
+    const notif = pick(notifTypes);
+    await prisma.notification.create({
+      data: {
+        userId: i < 5 ? admin.id : clients[i % 23].id,
+        type: notif.type,
+        title: notif.title,
+        body: notif.body,
+        readAt: Math.random() > 0.4 ? randomDate(addDays(now, -7), now) : null,
+      },
+    });
+  }
+  console.log("15 notifications seeded");
+
+  // ==================== BLOCKED SLOTS ====================
+
+  // Lunch breaks for next week
+  for (let day = 1; day <= 5; day++) {
+    const date = addDays(today, day);
+    const practitioner = pick(practitioners);
+    await prisma.blockedSlot.create({
+      data: {
+        practitionerId: practitioner.id,
+        startsAt: setTime(date, 12, 0),
+        endsAt: setTime(date, 13, 0),
+        reason: "Lunch break",
+      },
+    });
+  }
+  // Training day
+  await prisma.blockedSlot.create({
+    data: {
+      practitionerId: practitioner1.id,
+      startsAt: setTime(addDays(today, 5), 9, 0),
+      endsAt: setTime(addDays(today, 5), 18, 0),
+      reason: "Training day",
+    },
+  });
+  console.log("6 blocked slots seeded");
+
+  console.log("\nSeeding complete!");
 }
 
 main()
