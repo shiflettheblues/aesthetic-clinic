@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --include=dev
+RUN npm install
 
 COPY prisma ./prisma
 RUN npx prisma generate
@@ -13,4 +13,4 @@ COPY . .
 RUN npm run build
 
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy && (npx tsx prisma/seed.ts || echo 'Seed failed, continuing...') && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && (npx tsx prisma/seed.ts || echo 'Seed warning: failed but continuing') && node dist/server.js"]
