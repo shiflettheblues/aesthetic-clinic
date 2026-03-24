@@ -217,7 +217,15 @@ async function main() {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const appointmentRecords: { id: string; clientId: string; practitionerId: string; treatmentId: string; startsAt: Date; status: string; priceCents: number }[] = [];
 
-  // Delete existing seed appointments to avoid duplicates
+  // Skip appointment seeding if data already exists
+  const existingApptCount = await prisma.appointment.count();
+  if (existingApptCount > 10) {
+    console.log(`${existingApptCount} appointments already exist — skipping appointment seed`);
+    console.log("Seeding complete!");
+    return;
+  }
+
+  // Clean slate for appointments
   await prisma.review.deleteMany({});
   await prisma.payment.deleteMany({});
   await prisma.appointment.deleteMany({});
@@ -567,8 +575,8 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error(e);
-    process.exit(1);
+    console.error("Seed error:", e);
+    // Don't process.exit(1) — let the server still start
   })
   .finally(async () => {
     await prisma.$disconnect();
