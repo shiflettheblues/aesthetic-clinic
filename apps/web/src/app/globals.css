@@ -1,19 +1,39 @@
 @import "tailwindcss";
 
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Manrope:wght@200..800&display=swap');
+
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --border: #e5e5e5;
-  --primary: #7c3aed;
+  --background: #f9faf2;
+  --foreground: #1a1c18;
+  --muted: #e8e9e1;
+  --muted-foreground: #75786f;
+  --border: #c5c8bd;
+  --primary: #516143;
   --primary-foreground: #ffffff;
-  --destructive: #ef4444;
-  --accent: #f3f0ff;
+  --destructive: #ba1a1a;
+  --accent: #dfe6c6;
+  --surface: #f9faf2;
+  --surface-container: #edefe7;
+  --surface-container-low: #f3f4ec;
+  --surface-dim: #d9dbd3;
+  --outline: #75786f;
+  --outline-variant: #c5c8bd;
+  --secondary: #5a6148;
+  --secondary-container: #dce3c3;
+  --tertiary: #655a4b;
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Manrope", system-ui, -apple-system, sans-serif;
   color: var(--foreground);
   background: var(--background);
+}
+
+.font-headline {
+  font-family: "Newsreader", Georgia, serif;
+}
+
+.grid-bg {
+  background-image: radial-gradient(var(--primary) 0.5px, transparent 0.5px);
+  background-size: 24px 24px;
 }
