@@ -2,6 +2,7 @@ databases:
   - name: aesthetic-clinic-db
     plan: free
     databaseName: aesthetic_clinic
+    ipAllowList: []
 
 services:
   - type: redis
