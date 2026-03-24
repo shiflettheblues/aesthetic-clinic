@@ -63,10 +63,10 @@ export default function HomePage() {
           <div className="max-w-[1440px] mx-auto px-6 md:px-12 h-full flex flex-col md:flex-row items-center gap-12 pt-12">
             <div className="w-full md:w-1/2 z-10">
               <h1 className="font-headline text-5xl md:text-7xl lg:text-8xl text-[var(--foreground)] leading-[1.05] mb-6">
-                Where <span className="italic">Beauty</span> Meets Wellness
+                Advanced <span className="italic">Aesthetic</span> Treatments
               </h1>
               <p className="text-[var(--muted-foreground)] text-lg mb-8 max-w-md font-light leading-relaxed">
-                Personalised aesthetic and wellness treatments tailored to you, delivered by expert practitioners in Ipswich.
+                Medical-grade injectables, laser treatments, and skin rejuvenation delivered by qualified aesthetic practitioners in Ipswich.
               </p>
               <div className="flex flex-wrap gap-4 mb-10">
                 <Link href="/book" className="bg-[var(--primary)] text-white px-8 py-3 rounded-full text-sm inline-block">
@@ -78,13 +78,13 @@ export default function HomePage() {
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-sm text-[var(--muted-foreground)] font-light">
-                  <span className="material-symbols-outlined text-[var(--primary)] text-lg">check</span> Personalised treatment plans
+                  <span className="material-symbols-outlined text-[var(--primary)] text-lg">check</span> Medical-grade products & techniques
                 </div>
                 <div className="flex items-center gap-3 text-sm text-[var(--muted-foreground)] font-light">
-                  <span className="material-symbols-outlined text-[var(--primary)] text-lg">check</span> Expert practitioners
+                  <span className="material-symbols-outlined text-[var(--primary)] text-lg">check</span> Qualified aesthetic practitioners
                 </div>
                 <div className="flex items-center gap-3 text-sm text-[var(--muted-foreground)] font-light">
-                  <span className="material-symbols-outlined text-[var(--primary)] text-lg">check</span> 96+ treatments available
+                  <span className="material-symbols-outlined text-[var(--primary)] text-lg">check</span> 96+ treatments across 16 specialities
                 </div>
               </div>
               <div className="mt-12 flex items-center gap-4">
@@ -120,10 +120,10 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row gap-16 items-start">
             <div className="md:w-1/2">
               <h2 className="font-headline text-4xl md:text-5xl leading-tight mb-8">
-                Embrace Your Inner Peace and <span className="italic">Discover True Beauty</span>
+                Clinical Results with a <span className="italic">Personal Touch</span>
               </h2>
               <p className="text-[var(--muted-foreground)] leading-relaxed max-w-lg font-light">
-                At Dr Skin Central, we believe beauty grows from confidence. Each treatment is thoughtfully designed by our expert team to deliver natural-looking results while caring for your overall wellbeing.
+                At Dr Skin Central, every consultation begins with a thorough skin assessment. We use premium brands like Juv&eacute;derm, Profhilo, and Sunekos alongside advanced laser technology to deliver subtle, natural-looking results you&apos;ll love.
               </p>
             </div>
             <div className="md:w-1/2 flex justify-end">
@@ -139,24 +139,24 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="p-8 bg-[var(--surface-container-low)] rounded-[2rem] border border-[var(--outline-variant)]/10">
               <div className="bg-[var(--accent)] w-10 h-10 rounded-full flex items-center justify-center mb-10">
-                <span className="material-symbols-outlined text-[var(--primary)] text-xl">spa</span>
+                <span className="material-symbols-outlined text-[var(--primary)] text-xl">person_search</span>
               </div>
-              <h3 className="font-headline text-2xl mb-4">Personalised Care</h3>
-              <p className="text-[var(--muted-foreground)] text-sm font-light leading-relaxed">Every treatment is tailored to your unique skin type, goals, and lifestyle for truly individual results.</p>
+              <h3 className="font-headline text-2xl mb-4">Tailored Treatments</h3>
+              <p className="text-[var(--muted-foreground)] text-sm font-light leading-relaxed">Every client receives a bespoke treatment plan based on a full skin assessment, your concerns, and your aesthetic goals.</p>
             </div>
             <div className="p-8 bg-[var(--surface-container-low)] rounded-[2rem] border border-[var(--outline-variant)]/10">
               <div className="bg-[var(--accent)] w-10 h-10 rounded-full flex items-center justify-center mb-10">
                 <span className="material-symbols-outlined text-[var(--primary)] text-xl">science</span>
               </div>
-              <h3 className="font-headline text-2xl mb-4">Science & Expertise</h3>
-              <p className="text-[var(--muted-foreground)] text-sm font-light leading-relaxed">Certified practitioners using safe, proven techniques and cutting-edge technology for reliable results.</p>
+              <h3 className="font-headline text-2xl mb-4">Medical-Grade Results</h3>
+              <p className="text-[var(--muted-foreground)] text-sm font-light leading-relaxed">We use only premium, clinically-proven products and FDA-approved devices for safe, predictable outcomes.</p>
             </div>
             <div className="p-8 bg-[var(--surface-container-low)] rounded-[2rem] border border-[var(--outline-variant)]/10">
               <div className="bg-[var(--accent)] w-10 h-10 rounded-full flex items-center justify-center mb-10">
-                <span className="material-symbols-outlined text-[var(--primary)] text-xl">energy_savings_leaf</span>
+                <span className="material-symbols-outlined text-[var(--primary)] text-xl">event_repeat</span>
               </div>
-              <h3 className="font-headline text-2xl mb-4">Holistic Wellness</h3>
-              <p className="text-[var(--muted-foreground)] text-sm font-light leading-relaxed">We focus on enhancing natural beauty while promoting long-term skin health and confidence.</p>
+              <h3 className="font-headline text-2xl mb-4">Ongoing Skin Health</h3>
+              <p className="text-[var(--muted-foreground)] text-sm font-light leading-relaxed">From anti-ageing to acne management, we build long-term treatment plans that keep your skin at its best.</p>
             </div>
           </div>
         </section>
@@ -165,8 +165,8 @@ export default function HomePage() {
         <section id="treatments" className="py-24 px-6 md:px-12 bg-white">
           <div className="max-w-[1440px] mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-start gap-12 mb-16">
-              <h2 className="font-headline text-4xl md:text-5xl max-w-xl">Where Care <span className="italic">Meets Innovation</span></h2>
-              <p className="text-[var(--muted-foreground)] text-sm max-w-xs font-light leading-relaxed">Over 96 treatments across 16 categories, all delivered by our expert team in a calm, welcoming environment.</p>
+              <h2 className="font-headline text-4xl md:text-5xl max-w-xl">Our <span className="italic">Treatment</span> Menu</h2>
+              <p className="text-[var(--muted-foreground)] text-sm max-w-xs font-light leading-relaxed">Over 96 treatments across 16 specialities — from injectables and skin boosters to laser and body contouring.</p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {treatmentCategories.map((cat) => (
@@ -192,8 +192,8 @@ export default function HomePage() {
         {/* Beauty Insights */}
         <section className="py-24 px-6 md:px-12 max-w-[1440px] mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-headline text-4xl md:text-5xl mb-4">Beauty Insights & Wellness Tips</h2>
-            <p className="text-[var(--muted-foreground)] font-light max-w-2xl mx-auto">Stay informed with expert tips, treatment insights, and beauty trends tailored for you.</p>
+            <h2 className="font-headline text-4xl md:text-5xl mb-4">Treatment Insights & Skin Tips</h2>
+            <p className="text-[var(--muted-foreground)] font-light max-w-2xl mx-auto">Expert advice from our practitioners on treatments, aftercare, and getting the most from your results.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             {insights.map((insight) => (
@@ -212,8 +212,8 @@ export default function HomePage() {
         <section id="testimonials" className="py-24 px-6 md:px-12 max-w-[1440px] mx-auto">
           <div className="flex flex-col lg:flex-row gap-20 items-center">
             <div className="lg:w-1/2">
-              <h2 className="font-headline text-4xl md:text-5xl mb-6">Proof in Every Transformation</h2>
-              <p className="text-[var(--muted-foreground)] font-light mb-10 max-w-md">Every glow tells a story — discover the difference expert care can make.</p>
+              <h2 className="font-headline text-4xl md:text-5xl mb-6">Real Results, Real Clients</h2>
+              <p className="text-[var(--muted-foreground)] font-light mb-10 max-w-md">See the difference that expert aesthetic treatment makes — straight from the people who&apos;ve experienced it.</p>
               <div className="flex gap-4 mb-12">
                 <Link href="/book" className="bg-[var(--primary)]/80 text-white px-8 py-3 rounded-full text-sm inline-block">Book a Consultation</Link>
                 <a href="#treatments" className="bg-white border border-[var(--outline-variant)]/30 text-[var(--foreground)] px-8 py-3 rounded-full text-sm inline-block">Explore Treatments</a>
@@ -295,7 +295,7 @@ export default function HomePage() {
           <div className="md:col-span-4 space-y-8">
             <div className="text-3xl font-headline italic text-[var(--primary)]">Dr Skin Central</div>
             <p className="text-[var(--muted-foreground)] text-sm font-light leading-relaxed max-w-xs">
-              Personalised aesthetic and wellness treatments tailored to you, delivered by expert practitioners in Ipswich.
+              Advanced aesthetic treatments and skin rejuvenation delivered by qualified practitioners in Ipswich.
             </p>
           </div>
           <div className="md:col-span-2 space-y-6">
