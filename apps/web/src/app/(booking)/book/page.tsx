@@ -243,25 +243,53 @@ export default function BookingPage() {
     },
   });
 
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [isNewClient, setIsNewClient] = useState(false);
+
   // Create appointments
   const bookMutation = useMutation({
     mutationFn: async () => {
-      const clientId = meData?.user?.id;
-      const results = await Promise.all(
-        selectedTreatments.map((treatment) =>
-          api.post("/appointments", {
-            clientId: clientId!,
-            practitionerId: selectedPractitioner!.id,
-            treatmentId: treatment.id,
-            startsAt: selectedSlot!.startsAt,
-          })
-        )
-      );
-      return results.map((r) => r.data);
+      if (isLoggedIn) {
+        // Authenticated flow
+        const clientId = meData?.user?.id;
+        const results = await Promise.all(
+          selectedTreatments.map((treatment) =>
+            api.post("/appointments", {
+              clientId: clientId!,
+              practitionerId: selectedPractitioner!.id,
+              treatmentId: treatment.id,
+              startsAt: selectedSlot!.startsAt,
+            })
+          )
+        );
+        return results.map((r) => r.data);
+      } else {
+        // Guest flow
+        const [firstName, ...rest] = guestName.trim().split(" ");
+        const lastName = rest.join(" ") || firstName;
+        const results = await Promise.all(
+          selectedTreatments.map((treatment) =>
+            api.post("/appointments/guest", {
+              firstName,
+              lastName,
+              email: guestEmail,
+              phone: guestPhone,
+              practitionerId: selectedPractitioner!.id,
+              treatmentId: treatment.id,
+              startsAt: selectedSlot!.startsAt,
+            })
+          )
+        );
+        if (results[0]?.data?.isNewClient) setIsNewClient(true);
+        return results.map((r) => r.data);
+      }
     },
     onSuccess: () => {
-      setStep("treatment");
-      router.push("/my-dashboard?booked=1");
+      if (isLoggedIn) {
+        router.push("/my-dashboard?booked=1");
+      } else {
+        setBookingSuccess(true);
+      }
     },
   });
 
@@ -328,10 +356,6 @@ export default function BookingPage() {
 
   const handleConfirmBooking = () => {
     setSubmitAttempted(true);
-    if (!isLoggedIn) {
-      setShowAuthModal(true);
-      return;
-    }
     if (!canConfirm) return;
     bookMutation.mutate();
   };
@@ -579,7 +603,7 @@ export default function BookingPage() {
                 disabled={!selectedSlot}
                 onClick={() => {
                   if (selectedSlot) {
-                    lockMutation.mutate(selectedSlot);
+                    if (isLoggedIn) lockMutation.mutate(selectedSlot);
                     setStep("confirm");
                   }
                 }}
@@ -604,13 +628,13 @@ export default function BookingPage() {
                 )}
               </div>
               {!isLoggedIn && (
-                <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
-                  <span className="text-amber-600 mt-0.5">⚠</span>
+                <div className="mb-4 rounded-lg bg-[var(--accent)] border border-[var(--outline-variant)]/30 p-3 flex items-start gap-2">
+                  <span className="text-[var(--primary)] mt-0.5">&#9432;</span>
                   <div>
-                    <p className="text-sm font-medium text-amber-800">You're not logged in</p>
-                    <p className="text-xs text-amber-700 mt-0.5">
-                      <button onClick={() => setShowAuthModal(true)} className="underline font-medium">Create an account</button> or{" "}
-                      <Link href={`/login?redirect=/book`} className="underline font-medium">log in</Link> to complete your booking.
+                    <p className="text-sm font-medium text-[var(--foreground)]">Booking as a guest</p>
+                    <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+                      We&apos;ll send a confirmation to your email. Already have an account?{" "}
+                      <Link href={`/login?redirect=/book`} className="underline font-medium text-[var(--primary)]">Log in</Link>
                     </p>
                   </div>
                 </div>
@@ -755,6 +779,39 @@ export default function BookingPage() {
         )}
       </div>
 
+        {/* Booking Success (guests) */}
+        {bookingSuccess && (
+          <div className="space-y-6 text-center py-8">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+              <Check className="h-8 w-8 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold mb-2">Booking Confirmed!</h2>
+              <p className="text-[var(--muted-foreground)]">
+                A confirmation has been sent to <span className="font-medium text-[var(--foreground)]">{guestEmail}</span>
+              </p>
+            </div>
+            {isNewClient && (
+              <Card className="text-left !p-6">
+                <h3 className="font-semibold mb-2">Create your account</h3>
+                <p className="text-sm text-[var(--muted-foreground)] mb-4">
+                  Check your email for a link to set up your account. You&apos;ll be able to manage appointments, earn loyalty points, and access exclusive offers.
+                </p>
+              </Card>
+            )}
+            <div className="flex justify-center gap-3">
+              <Link href="/">
+                <Button variant="secondary">Back to Home</Button>
+              </Link>
+              <Link href="/book">
+                <Button onClick={() => { setBookingSuccess(false); setStep("treatment"); setSelectedTreatments([]); setSelectedPractitioner(null); setSelectedSlot(null); }}>
+                  Book Another
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
       {/* Sticky cart */}
       {step === "treatment" && selectedTreatments.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] shadow-lg z-10">
@@ -790,11 +847,11 @@ export default function BookingPage() {
         </div>
       )}
 
-      {/* Auth required modal */}
-      <Modal open={showAuthModal} onClose={() => setShowAuthModal(false)} title="Account required to book">
+      {/* Auth modal — kept for users who want to log in from booking */}
+      <Modal open={showAuthModal} onClose={() => setShowAuthModal(false)} title="Log in to your account">
         <div className="space-y-4">
           <p className="text-sm text-[var(--muted-foreground)]">
-            To complete your booking, you need an account. It only takes a minute to create one, and you'll be able to manage all your appointments in one place.
+            Log in to pre-fill your details and manage all your appointments in one place. Or continue as a guest — no account needed.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Link href="/register?redirect=/book">

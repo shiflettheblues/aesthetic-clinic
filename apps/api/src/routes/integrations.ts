@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { requireRole } from "../middleware/auth.js";
+import { syncAllClients } from "../services/mailchimp.js";
 
 const SUPPORTED_PROVIDERS = ["mailchimp", "klarna", "clearpay", "xero", "google_reviews"] as const;
 
@@ -114,8 +115,26 @@ export async function integrationRoutes(app: FastifyInstance) {
       data: { syncStatus: "syncing" },
     });
 
-    // In production, this would dispatch to a background job
-    // For now, simulate sync completion
+    if (provider === "mailchimp") {
+      // Real Mailchimp sync
+      try {
+        const result = await syncAllClients();
+        await prisma.integrationConfig.update({
+          where: { provider },
+          data: { syncStatus: "idle", lastSyncAt: new Date() },
+        });
+        return reply.send({ message: "Sync completed", ...result });
+      } catch (e) {
+        await prisma.integrationConfig.update({
+          where: { provider },
+          data: { syncStatus: "idle" },
+        });
+        console.error("[INTEGRATION] Mailchimp sync failed:", e);
+        return reply.status(500).send({ error: "Sync failed", code: "SYNC_ERROR" });
+      }
+    }
+
+    // Other providers — simulate sync
     setTimeout(async () => {
       await prisma.integrationConfig.update({
         where: { provider },

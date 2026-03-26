@@ -202,6 +202,68 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send({ user });
   });
 
+  // Complete invite — set password for guest-created account
+  app.post("/auth/complete-invite", async (request, reply) => {
+    const schema = z.object({
+      token: z.string().min(1),
+      password: z.string().min(8),
+    });
+
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: parsed.error.errors[0]?.message ?? "Invalid input",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const { token, password } = parsed.data;
+
+    const user = await prisma.user.findUnique({ where: { inviteToken: token } });
+    if (!user) {
+      return reply.status(400).send({ error: "Invalid or expired invite link", code: "INVALID_TOKEN" });
+    }
+
+    if (user.inviteExpiresAt && user.inviteExpiresAt < new Date()) {
+      return reply.status(400).send({ error: "Invite link has expired", code: "TOKEN_EXPIRED" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        inviteToken: null,
+        inviteExpiresAt: null,
+      },
+    });
+
+    const accessToken = app.jwt.sign(
+      { sub: user.id, role: user.role, email: user.email } satisfies JwtPayload,
+      { expiresIn: "15m" }
+    );
+
+    const refreshToken = app.jwt.sign(
+      { sub: user.id, type: "refresh" },
+      { expiresIn: "30d" }
+    );
+
+    await redis.set(`refresh:${user.id}:${refreshToken}`, "1", "EX", 30 * 24 * 60 * 60);
+
+    return reply.send({
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      accessToken,
+      refreshToken,
+    });
+  });
+
   // Update profile (client)
   app.patch("/auth/me", { preHandler: authenticate }, async (request, reply) => {
     const schema = z.object({

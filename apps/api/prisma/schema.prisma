@@ -101,6 +101,8 @@ model User {
   practitionerWaitlist     WaitlistEntry[] @relation("PractitionerWaitlist")
   faceMap                  FaceMap?
   isArchived               Boolean         @default(false) @map("is_archived")
+  inviteToken              String?         @unique @map("invite_token")
+  inviteExpiresAt          DateTime?       @map("invite_expires_at")
   medicalHistory           MedicalHistory?
   consentForms             ConsentForm[]
   patientImages            PatientImage[]

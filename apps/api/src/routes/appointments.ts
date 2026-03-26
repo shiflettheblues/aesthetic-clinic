@@ -1,11 +1,14 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import dayjs from "dayjs";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { getAvailableSlots, lockSlot, unlockSlot } from "../services/availability.js";
 import { notifyBookingCreated, notifyBookingCancelled, sendTemplatedNotification, buildAppointmentVars, createNotification } from "../services/notification.js";
-import { sendEmail } from "../services/email.js";
+import { sendEmail, sendBookingConfirmation, sendAccountInviteEmail } from "../services/email.js";
+import { subscribeContact } from "../services/mailchimp.js";
 
 const createSchema = z.object({
   clientId: z.string(),
@@ -252,6 +255,171 @@ export async function appointmentRoutes(app: FastifyInstance) {
     }
 
     return reply.status(201).send({ appointment });
+  });
+
+  // Guest booking — no auth required
+  const guestSchema = z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().min(1),
+    practitionerId: z.string(),
+    treatmentId: z.string(),
+    startsAt: z.string().datetime(),
+    notes: z.string().optional(),
+  });
+
+  app.post("/appointments/guest", async (request, reply) => {
+    const parsed = guestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: parsed.error.errors[0]?.message ?? "Invalid input",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const { firstName, lastName, email, phone, practitionerId, treatmentId, startsAt, notes } = parsed.data;
+
+    const treatment = await prisma.treatment.findUnique({ where: { id: treatmentId } });
+    if (!treatment) {
+      return reply.status(404).send({ error: "Treatment not found", code: "NOT_FOUND" });
+    }
+
+    const endsAt = dayjs(startsAt).add(treatment.durationMinutes, "minute").toISOString();
+
+    // Check for overlapping appointments
+    const overlap = await prisma.appointment.findFirst({
+      where: {
+        practitionerId,
+        status: { notIn: ["CANCELLED"] },
+        startsAt: { lt: new Date(endsAt) },
+        endsAt: { gt: new Date(startsAt) },
+      },
+    });
+
+    if (overlap) {
+      return reply.status(409).send({ error: "Time slot not available", code: "SLOT_UNAVAILABLE" });
+    }
+
+    // Find or create client
+    let client = await prisma.user.findUnique({ where: { email } });
+    let isNewClient = false;
+
+    if (!client) {
+      // Create guest user with no usable password (random hash)
+      const randomPass = crypto.randomBytes(32).toString("hex");
+      const passwordHash = await bcrypt.hash(randomPass, 12);
+      const inviteToken = crypto.randomBytes(32).toString("hex");
+
+      client = await prisma.user.create({
+        data: {
+          email,
+          firstName,
+          lastName,
+          phone,
+          passwordHash,
+          role: "CLIENT",
+          inviteToken,
+          inviteExpiresAt: dayjs().add(7, "day").toDate(),
+        },
+      });
+      isNewClient = true;
+    } else {
+      // Update phone if not set
+      if (!client.phone && phone) {
+        await prisma.user.update({ where: { id: client.id }, data: { phone } });
+      }
+    }
+
+    const appointment = await prisma.appointment.create({
+      data: {
+        clientId: client.id,
+        practitionerId,
+        treatmentId,
+        startsAt: new Date(startsAt),
+        endsAt: new Date(endsAt),
+        notes,
+        status: "CONFIRMED",
+      },
+      include: {
+        client: { select: { id: true, firstName: true, lastName: true, email: true } },
+        practitioner: { select: { id: true, firstName: true, lastName: true } },
+        treatment: { select: { id: true, name: true, durationMinutes: true, priceCents: true } },
+      },
+    });
+
+    // Release slot lock
+    await unlockSlot(practitionerId, startsAt);
+
+    // Send in-app notifications
+    await notifyBookingCreated({
+      clientId: client.id,
+      practitionerId,
+      treatmentName: treatment.name,
+      startsAt: new Date(startsAt),
+    });
+
+    const practitioner = appointment.practitioner;
+    const practitionerName = `${practitioner.firstName} ${practitioner.lastName}`;
+    const dateTime = dayjs(startsAt).format("dddd D MMMM YYYY [at] HH:mm");
+
+    // Send booking confirmation email
+    try {
+      await sendBookingConfirmation({
+        to: email,
+        clientName: firstName,
+        treatmentName: treatment.name,
+        practitionerName,
+        dateTime,
+      });
+    } catch (e) {
+      console.error("[GUEST] Booking confirmation email error:", e);
+    }
+
+    // Send account invite email for new clients
+    if (isNewClient && client.inviteToken) {
+      try {
+        await sendAccountInviteEmail({
+          to: email,
+          clientName: firstName,
+          treatmentName: treatment.name,
+          practitionerName,
+          dateTime,
+          inviteToken: client.inviteToken,
+        });
+      } catch (e) {
+        console.error("[GUEST] Account invite email error:", e);
+      }
+    }
+
+    // Subscribe to Mailchimp
+    try {
+      await subscribeContact({
+        email,
+        firstName,
+        lastName,
+        phone,
+        tags: ["guest-booking", treatment.category ?? "Other"],
+      });
+    } catch (e) {
+      console.error("[GUEST] Mailchimp subscribe error:", e);
+    }
+
+    // Auto-award loyalty points
+    try {
+      await prisma.loyaltyPoints.create({
+        data: {
+          clientId: client.id,
+          points: 10,
+          reason: "booking",
+          reference: appointment.id,
+        },
+      });
+    } catch (e) {
+      console.error("[LOYALTY] Failed to award booking points:", e);
+    }
+
+    return reply.status(201).send({ appointment, isNewClient });
   });
 
   // Update appointment
