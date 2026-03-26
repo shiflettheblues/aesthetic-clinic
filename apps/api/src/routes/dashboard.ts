@@ -36,7 +36,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         orderBy: { startsAt: "asc" },
       }),
       // Total patients
-      prisma.user.count({ where: { role: "CLIENT", archivedAt: null } }),
+      prisma.user.count({ where: { role: "CLIENT", isArchived: false } }),
       // New clients this month
       prisma.user.count({ where: { role: "CLIENT", createdAt: { gte: monthStart, lte: monthEnd } } }),
       // Completed appointments this month (for revenue)
